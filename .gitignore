@@ -1,0 +1,15 @@
+datasets
+catboost_info
+.ipynb_checkpoints
+.pytest_cache
+**/.ipynb_checkpoints
+data
+models
+__pycache__
+.idea
+figures
+traces
+
+submission.csv
+foo.py
+.pause
