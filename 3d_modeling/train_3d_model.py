@@ -16,18 +16,20 @@ CONFIG = dict(
     num_conditions=5,
     image_interpolation="nearest",
     # backbone="maxvit_rmlp_nano_rw_256",
-    backbone="coatnet_rmlp_3_rw_224",
-    vol_size=(128, 128, 128),
-    loss_weights=CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR,
+    # backbone="coatnet_rmlp_3_rw_224",
+    backbone="maxxvit_rmlp_small_rw_256",
+    # vol_size=(128, 128, 128),
+    vol_size=(256, 256, 256),
+    loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     num_workers=10,
-    gradient_acc_steps=4,
-    drop_rate=0.4,
+    gradient_acc_steps=8,
+    drop_rate=0.2,
     drop_rate_last=0.,
-    drop_path_rate=0.4,
+    drop_path_rate=0.2,
     aug_prob=0.9,
     out_dim=3,
-    epochs=60,
-    batch_size=5,
+    epochs=35,
+    batch_size=2,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -42,7 +44,7 @@ class Classifier3dMultihead(nn.Module):
                  backbone="efficientnet_lite0",
                  in_chans=1,
                  out_classes=5,
-                 cutpoint_margin=0.15,
+                 cutpoint_margin=0,
                  pretrained=False):
         super(Classifier3dMultihead, self).__init__()
         self.out_classes = out_classes
@@ -125,7 +127,7 @@ def train_model_3d(backbone, model_label: str):
             CumulativeLinkLoss() for i in range(CONFIG["num_classes"])
         ],
         "alt_val": [
-            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_classes"])
+            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_classes"])
         ],
         "unweighted_alt_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_classes"])
@@ -166,7 +168,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     transform_3d_train = tio.Compose([
         tio.CropOrPad(target_shape=CONFIG["vol_size"]),
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, p=CONFIG["aug_prob"]),
+        tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
@@ -198,15 +200,13 @@ def train_stage_2_model_3d(backbone, model_label: str):
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
-            # CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
+            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
             CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
         ],
         "alt_val": [
-            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
-            # nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
+            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_classes"])
         ],
         "unweighted_alt_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
@@ -214,8 +214,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        if index != 3:
-            continue
         model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"]).to(device)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4),
@@ -233,6 +231,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     train_loader_desc=f"Training {model_label} fold {index}",
                                     epochs=NUM_EPOCHS,
                                     freeze_backbone_initial_epochs=0,
+                                    freeze_backbone_after_epochs=0,
                                     loss_weights=CONFIG["loss_weights"],
                                     callbacks=[model._ascension_callback],
                                     gradient_accumulation_per=CONFIG["gradient_acc_steps"]
@@ -242,8 +241,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
 
 def train():
-    model = train_stage_2_model_3d(CONFIG['backbone'],
-                           f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
+    model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
 
 
 if __name__ == '__main__':

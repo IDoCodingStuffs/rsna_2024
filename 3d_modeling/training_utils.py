@@ -55,7 +55,8 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
                 for index, loss_fn in enumerate(loss_fns["alt_val"]):
                     if len(loss_fns["alt_val"]) > 1:
                         # !TODO: Label squeezed for CE loss
-                        loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
+                        # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
+                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
                     else:
                         loss = loss_fn(output, label) / len(loss_fns["alt_val"])
                     alt_val_loss += loss.cpu().item()
@@ -130,6 +131,7 @@ def train_model_with_validation(model,
                                 gradient_accumulation_per=1,
                                 epochs=10,
                                 freeze_backbone_initial_epochs=0,
+                                freeze_backbone_after_epochs=0,
                                 empty_cache_every_n_iterations=0,
                                 loss_weights=None,
                                 callbacks=None):
@@ -160,12 +162,17 @@ def train_model_with_validation(model,
 
                 del images
 
-                if len(loss_fns["train"]) > 1:
+                losses = loss_fns["train"]
+                if freeze_backbone_after_epochs > 0 and epoch >= freeze_backbone_after_epochs:
+                    freeze_model_backbone(model)
+                    losses = loss_fns["alt_val"]
+
+                if len(losses) > 1:
                     loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index]) / gradient_accumulation_per) for
-                                loss_index, loss_fn in enumerate(loss_fns["train"])]) / len(loss_fns["train"])
+                                loss_index, loss_fn in enumerate(losses)]) / len(losses)
                 else:
-                    loss = loss_fns["train"][0](output, label) / gradient_accumulation_per
-                epoch_loss += loss.detach().cpu().item() * gradient_accumulation_per  # / len(loss_fns["train"])
+                    loss = losses[0](output, label) / gradient_accumulation_per
+                epoch_loss += loss.detach().cpu().item() * gradient_accumulation_per
 
                 del label
 
