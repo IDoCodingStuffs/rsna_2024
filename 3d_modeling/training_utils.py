@@ -130,8 +130,8 @@ def train_model_with_validation(model,
                                 model_desc="my_model",
                                 gradient_accumulation_per=1,
                                 epochs=10,
-                                freeze_backbone_initial_epochs=0,
-                                freeze_backbone_after_epochs=0,
+                                freeze_backbone_initial_epochs=-1,
+                                freeze_backbone_after_epochs=-1,
                                 empty_cache_every_n_iterations=0,
                                 loss_weights=None,
                                 callbacks=None):
@@ -150,7 +150,7 @@ def train_model_with_validation(model,
         epoch_loss = 0
         model.train()
 
-        if freeze_backbone_initial_epochs > 0 and epoch == freeze_backbone_initial_epochs:
+        if freeze_backbone_initial_epochs >= 0 and epoch == freeze_backbone_initial_epochs:
             unfreeze_model_backbone(model)
 
         for index, val in enumerate(tqdm(train_loader, desc=f"Epoch {epoch}")):
@@ -163,7 +163,7 @@ def train_model_with_validation(model,
                 del images
 
                 losses = loss_fns["train"]
-                if freeze_backbone_after_epochs > 0 and epoch >= freeze_backbone_after_epochs:
+                if freeze_backbone_after_epochs >= 0 and epoch >= freeze_backbone_after_epochs:
                     freeze_model_backbone(model)
                     losses = loss_fns["alt_val"]
 
