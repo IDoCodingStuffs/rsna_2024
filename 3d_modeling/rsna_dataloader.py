@@ -153,7 +153,7 @@ class StudyPerVertebraLevelDataset(Dataset):
         label = np.array(self.labels[(curr["study_id"], curr["level"])])
         study_path = os.path.join(self.base_path, str(curr["study_id"]))
 
-        level = curr["level"].replace("/", "").lower()
+        level = curr["level"].replace("/", "_").lower()
         curr_bounds = self.bounds_dataframe[
             (self.bounds_dataframe["study_id"] == curr["study_id"]) & (self.bounds_dataframe["level"] == curr["level"])
         ]

@@ -17,7 +17,7 @@ CONFIG = dict(
     image_interpolation="bspline",
     backbone="coatnet_rmlp_3_rw_224",
     # backbone="maxxvit_rmlp_small_rw_256",
-    vol_size=(96, 96, 96),
+    vol_size=(128, 128, 128),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
@@ -181,7 +181,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
         tio.RescaleIntensity((0, 1)),
     ])
 
-    dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(TRAINING_DATA,
+    train_data = TRAINING_DATA[TRAINING_DATA["study_id"].isin(bounds_dataframe["study_id"])]
+    dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
                                                                       boundaries_df=bounds_dataframe,
                                                                    transform_3d_train=transform_3d_train,
                                                                    transform_3d_val=transform_3d_val,
@@ -324,8 +325,8 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
+    # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
     #                               "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_35.pt",
