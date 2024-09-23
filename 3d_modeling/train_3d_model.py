@@ -282,6 +282,9 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
         "alt_val": [
             CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
         ],
+        "weighted_alt_val": [
+            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
+        ],
         "unweighted_alt_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
         ]
@@ -302,7 +305,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 criteria,
                                 trainloader,
                                 valloader,
-                                model_desc=model_label + f"_fold_{fold_index}_tunes",
+                                model_desc=model_label + f"_fold_{fold_index}",
                                 train_loader_desc=f"Tuning {model_label} fold {fold_index}",
                                 epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
@@ -316,9 +319,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-
+    model = tune_stage_2_model_3d(CONFIG['backbone'],
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
+                                  "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_35.pt",
+                                  fold_index=0)
 
 if __name__ == '__main__':
     train()
