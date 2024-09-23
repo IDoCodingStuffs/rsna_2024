@@ -157,15 +157,12 @@ class StudyPerVertebraLevelDataset(Dataset):
         curr_bounds = self.bounds_dataframe[
             (self.bounds_dataframe["study_id"] == curr["study_id"]) & (self.bounds_dataframe["level"] == curr["level"])
         ]
-
-        z_size = self.vol_size[0] // 3 if level != "l5s1" else int(self.vol_size[0] / 3 * 2)
-
         study_images = read_vertebral_level_as_voxel_grid(study_path,
                                                           vertebral_level=level,
                                                           min_bound=np.array([curr_bounds['x_min'], curr_bounds['y_min'], curr_bounds['z_min']]),
                                                           max_bound=np.array([curr_bounds['x_max'], curr_bounds['y_max'], curr_bounds['z_max']]),
                                                           series_type_dict=self.series_descs,
-                                                          voxel_size=(self.vol_size[0], self.vol_size[1], z_size)
+                                                          voxel_size=self.vol_size
                                                           )
 
         if is_mirror:
