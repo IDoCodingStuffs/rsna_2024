@@ -32,6 +32,8 @@ def worker_loop(dirslice):
         study_id = dir.split("/")[-1].split("\\")[-2]
         study_bounds = bounding_boxes[bounding_boxes['study_id'] == int(study_id)].sort_values(by="level", ascending=True)
 
+        # read_study_as_voxel_grid_v2(dir, series_descs)
+
         levels = []
         min_bounds = []
         max_bounds = []
@@ -46,7 +48,7 @@ def worker_loop(dirslice):
                     min_bound=np.array([row['x_min'], row['y_min'], row['z_min']]),
                     max_bound=np.array([row['x_max'], row['y_max'], row['z_max']]),
                     series_type_dict=series_descs,
-                    voxel_size=(128, 128, int(128 / 3 * 2)))
+                    voxel_size=(96, 96, int(96 / 3 * 2)))
 
             else:
                 levels.append(row['level'].replace("/", "").lower())
@@ -59,7 +61,7 @@ def worker_loop(dirslice):
             min_bounds=min_bounds,
             max_bounds=max_bounds,
             series_type_dict=series_descs,
-            voxel_size=(128, 128, int(128 / 3)))
+            voxel_size=(96, 96, int(96 / 3)))
 
 
 if __name__ == "__main__":

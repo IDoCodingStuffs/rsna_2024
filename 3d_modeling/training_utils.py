@@ -28,6 +28,7 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
     unweighted_val_loss = 0
     alt_val_loss = 0
     unweighted_alt_val_loss = 0
+    weighted_alt_val_loss = 0
 
     with torch.no_grad():
         model.eval()
@@ -55,7 +56,8 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
                 for index, loss_fn in enumerate(loss_fns["alt_val"]):
                     if len(loss_fns["alt_val"]) > 1:
                         # !TODO: Label squeezed for CE loss
-                        loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
+                        # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
+                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
                     else:
                         loss = loss_fn(output, label) / len(loss_fns["alt_val"])
                     alt_val_loss += loss.cpu().item()
@@ -69,6 +71,15 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
                         loss = loss_fn(output, label) / len(loss_fns["alt_val"])
                     unweighted_alt_val_loss += loss.cpu().item()
 
+                for index, loss_fn in enumerate(loss_fns["weighted_alt_val"]):
+                    if len(loss_fns["unweighted_alt_val"]) > 1:
+                        # !TODO: Label squeezed for CE loss
+                        loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(
+                            loss_fns["unweighted_alt_val"])
+                    else:
+                        loss = loss_fn(output, label) / len(loss_fns["alt_val"])
+                    weighted_alt_val_loss += loss.cpu().item()
+
                 del output
             # torch.cuda.empty_cache()
 
@@ -76,22 +87,25 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
         unweighted_val_loss = unweighted_val_loss / len(val_loader)
         alt_val_loss = alt_val_loss / len(val_loader)
         unweighted_alt_val_loss = unweighted_alt_val_loss / len(val_loader)
+        weighted_alt_val_loss = weighted_alt_val_loss / len(val_loader)
 
-        return val_loss, unweighted_val_loss, alt_val_loss, unweighted_alt_val_loss
+        return val_loss, unweighted_val_loss, alt_val_loss, weighted_alt_val_loss, unweighted_alt_val_loss
 
 
 def dump_plots_for_loss_and_acc(losses,
                                 val_losses,
                                 unweighted_val_losses,
                                 alt_val_losses,
+                                weighted_alt_val_losses,
                                 unweighted_alt_val_losses,
                                 data_subset_label,
                                 model_label):
     plt.plot(np.log(losses), label="train")
-    plt.plot(np.log(val_losses), label="weighted_val")
-    plt.plot(np.log(unweighted_val_losses), label="unweighted_val")
-    plt.plot(np.log(alt_val_losses), label="alt_val")
-    plt.plot(np.log(unweighted_alt_val_losses), label="unweighted_alt_val")
+    plt.plot(np.log(val_losses), label="val")
+    plt.plot(np.log(unweighted_val_losses), label="unweighted_link_val")
+    plt.plot(np.log(alt_val_losses), label="comp_weighted_link_val")
+    plt.plot(np.log(weighted_alt_val_losses), label="comp_weighted_ce_val")
+    plt.plot(np.log(unweighted_alt_val_losses), label="unweighted_ce_val")
     plt.legend(loc="center right")
     plt.title(data_subset_label)
     plt.savefig(f'./figures/{model_label}_loss.png')
@@ -129,7 +143,8 @@ def train_model_with_validation(model,
                                 model_desc="my_model",
                                 gradient_accumulation_per=1,
                                 epochs=10,
-                                freeze_backbone_initial_epochs=0,
+                                freeze_backbone_initial_epochs=-1,
+                                freeze_backbone_after_epochs=-1,
                                 empty_cache_every_n_iterations=0,
                                 loss_weights=None,
                                 callbacks=None):
@@ -138,6 +153,7 @@ def train_model_with_validation(model,
     epoch_unweighted_validation_losses = []
     epoch_alt_validation_losses = []
     epoch_unweighted_alt_validation_losses = []
+    epoch_weighted_alt_validation_losses = []
 
     scaler = GradScaler(init_scale=4096)
 
@@ -148,7 +164,7 @@ def train_model_with_validation(model,
         epoch_loss = 0
         model.train()
 
-        if freeze_backbone_initial_epochs > 0 and epoch == freeze_backbone_initial_epochs:
+        if freeze_backbone_initial_epochs >= 0 and epoch == freeze_backbone_initial_epochs:
             unfreeze_model_backbone(model)
 
         for index, val in enumerate(tqdm(train_loader, desc=f"Epoch {epoch}")):
@@ -160,12 +176,17 @@ def train_model_with_validation(model,
 
                 del images
 
-                if len(loss_fns["train"]) > 1:
+                losses = loss_fns["train"]
+                if freeze_backbone_after_epochs >= 0 and epoch >= freeze_backbone_after_epochs:
+                    freeze_model_backbone(model)
+                    losses = loss_fns["alt_val"]
+
+                if len(losses) > 1:
                     loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index]) / gradient_accumulation_per) for
-                                loss_index, loss_fn in enumerate(loss_fns["train"])]) / len(loss_fns["train"])
+                                loss_index, loss_fn in enumerate(losses)]) / len(losses)
                 else:
-                    loss = loss_fns["train"][0](output, label) / gradient_accumulation_per
-                epoch_loss += loss.detach().cpu().item() * gradient_accumulation_per  # / len(loss_fns["train"])
+                    loss = losses[0](output, label) / gradient_accumulation_per
+                epoch_loss += loss.detach().cpu().item() * gradient_accumulation_per
 
                 del label
 
@@ -193,7 +214,11 @@ def train_model_with_validation(model,
                 pass
 
         epoch_loss = epoch_loss / len(train_loader)
-        epoch_validation_loss, epoch_unweighted_validation_loss, epoch_alt_validation_loss, epoch_unweighted_alt_validation_loss = (
+        (epoch_validation_loss,
+         epoch_unweighted_validation_loss,
+         epoch_alt_validation_loss,
+         epoch_unweighted_alt_validation_loss,
+         epoch_weighted_alt_validation_loss) = (
             model_validation_loss(model, val_loader, loss_fns, epoch)
         )
 
@@ -214,6 +239,7 @@ def train_model_with_validation(model,
         epoch_unweighted_validation_losses.append(epoch_unweighted_validation_loss)
         epoch_alt_validation_losses.append(epoch_alt_validation_loss)
         epoch_unweighted_alt_validation_losses.append(epoch_unweighted_alt_validation_loss)
+        epoch_weighted_alt_validation_losses.append(epoch_unweighted_alt_validation_loss)
 
         epoch_losses.append(epoch_loss)
 
@@ -221,6 +247,7 @@ def train_model_with_validation(model,
                                     epoch_validation_losses,
                                     epoch_unweighted_validation_losses,
                                     epoch_alt_validation_losses,
+                                    epoch_weighted_alt_validation_losses,
                                     epoch_unweighted_alt_validation_losses,
                                     train_loader_desc, model_desc)
         print(f"Training Loss for epoch {epoch}: {epoch_loss:.6f}")
@@ -228,5 +255,6 @@ def train_model_with_validation(model,
         print(f"Unweighted Validation Loss for epoch {epoch}: {epoch_unweighted_validation_loss:.6f}")
         print(f"Alt Validation Loss for epoch {epoch}: {epoch_alt_validation_loss:.6f}")
         print(f"Unweighted Alt Validation Loss for epoch {epoch}: {epoch_unweighted_alt_validation_loss:.6f}")
+        print(f"Weighted Alt Validation Loss for epoch {epoch}: {epoch_weighted_alt_validation_loss:.6f}")
 
     return epoch_losses, epoch_validation_losses

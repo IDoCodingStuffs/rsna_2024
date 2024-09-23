@@ -577,7 +577,7 @@ def read_study_as_voxel_grid(dir_path, channel_count=3, downsampling_factor=1, s
 
 
 def read_study_as_voxel_grid_v2(dir_path, series_type_dict=None, downsampling_factor=1, img_size=(256, 256)):
-    cache_path = os.path.join(dir_path, f"cached_grid_v2_unstacked_{img_size[0]}.npy.gz")
+    cache_path = os.path.join(dir_path, f"cached_grid_v2_{img_size[0]}.npy.gz")
     f = None
     if os.path.exists(cache_path):
         try:
@@ -595,7 +595,7 @@ def read_study_as_voxel_grid_v2(dir_path, series_type_dict=None, downsampling_fa
                                     series_types_dict=series_type_dict,
                                     downsampling_factor=downsampling_factor,
                                     img_size=img_size,
-                                    stack_slices_thickness=False)
+                                    stack_slices_thickness=True)
     box = pcd_overall.get_axis_aligned_bounding_box()
 
     max_b = np.array(box.get_max_bound())
