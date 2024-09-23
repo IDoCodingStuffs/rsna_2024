@@ -89,7 +89,7 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
         unweighted_alt_val_loss = unweighted_alt_val_loss / len(val_loader)
         weighted_alt_val_loss = weighted_alt_val_loss / len(val_loader)
 
-        return val_loss, unweighted_val_loss, alt_val_loss, unweighted_alt_val_loss, weighted_alt_val_loss
+        return val_loss, unweighted_val_loss, alt_val_loss, weighted_alt_val_loss, unweighted_alt_val_loss
 
 
 def dump_plots_for_loss_and_acc(losses,
