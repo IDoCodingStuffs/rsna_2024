@@ -116,8 +116,6 @@ def train_model_3d(backbone, model_label: str):
                                                                    use_mirroring_trick=True
                                                                    )
 
-    NUM_EPOCHS = CONFIG["epochs"]
-
     schedulers = [
     ]
     criteria = {
@@ -153,7 +151,7 @@ def train_model_3d(backbone, model_label: str):
                                     valloader,
                                     model_desc=model_label + f"_fold_{index}",
                                     train_loader_desc=f"Training {model_label} fold {index}",
-                                    epochs=NUM_EPOCHS,
+                                    epochs=CONFIG["epochs"],
                                     freeze_backbone_initial_epochs=-1,
                                     freeze_backbone_after_epochs=-1,
                                     loss_weights=CONFIG["loss_weights"],
@@ -196,8 +194,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                                                    use_mirroring_trick=True
                                                                    )
 
-    NUM_EPOCHS = CONFIG["epochs"]
-
     schedulers = [
     ]
     criteria = {
@@ -231,7 +227,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     valloader,
                                     model_desc=model_label + f"_fold_{index}",
                                     train_loader_desc=f"Training {model_label} fold {index}",
-                                    epochs=NUM_EPOCHS,
+                                    epochs=CONFIG["epochs"],
                                     freeze_backbone_initial_epochs=-1,
                                     freeze_backbone_after_epochs=-1,
                                     loss_weights=CONFIG["loss_weights"],
@@ -274,8 +270,6 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                                                    use_mirroring_trick=True
                                                                    )
 
-    NUM_EPOCHS = CONFIG["epochs"]
-
     schedulers = [
     ]
     criteria = {
@@ -310,7 +304,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 valloader,
                                 model_desc=model_label + f"_fold_{fold_index}_tunes",
                                 train_loader_desc=f"Tuning {model_label} fold {fold_index}",
-                                epochs=NUM_EPOCHS,
+                                epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
                                 freeze_backbone_after_epochs=0,
                                 loss_weights=CONFIG["loss_weights"],
