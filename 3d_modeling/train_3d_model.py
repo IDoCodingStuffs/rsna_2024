@@ -120,16 +120,16 @@ def train_model_3d(backbone, model_label: str):
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_classes"])
+            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]).to(device) for i in range(CONFIG["num_classes"])
         ],
         "unweighted_val": [
-            CumulativeLinkLoss() for i in range(CONFIG["num_classes"])
+            CumulativeLinkLoss().to(device) for i in range(CONFIG["num_classes"])
         ],
         "alt_val": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_classes"])
+            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_classes"])
         ],
         "weighted_alt_val": [
-            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]) for i in range(CONFIG["num_classes"])
+            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_classes"])
         ],
         "unweighted_alt_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_classes"])

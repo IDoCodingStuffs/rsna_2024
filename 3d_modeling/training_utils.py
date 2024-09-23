@@ -68,16 +68,16 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
                         loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(
                             loss_fns["unweighted_alt_val"])
                     else:
-                        loss = loss_fn(output, label) / len(loss_fns["alt_val"])
+                        loss = loss_fn(output, label) / len(loss_fns["unweighted_alt_val"])
                     unweighted_alt_val_loss += loss.cpu().item()
 
                 for index, loss_fn in enumerate(loss_fns["weighted_alt_val"]):
                     if len(loss_fns["unweighted_alt_val"]) > 1:
                         # !TODO: Label squeezed for CE loss
                         loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(
-                            loss_fns["unweighted_alt_val"])
+                            loss_fns["weighted_alt_val"])
                     else:
-                        loss = loss_fn(output, label) / len(loss_fns["alt_val"])
+                        loss = loss_fn(output, label) / len(loss_fns["weighted_alt_val"])
                     weighted_alt_val_loss += loss.cpu().item()
 
                 del output
