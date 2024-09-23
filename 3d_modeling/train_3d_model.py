@@ -15,14 +15,14 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
-    backbone="coatnet_rmlp_3_rw_224",
-    # backbone="maxxvit_rmlp_small_rw_256",
-    vol_size=(128, 128, 128),
-    # vol_size=(256, 256, 256),
-    # loss_weights=CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR,
-    loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
+    # backbone="coatnet_rmlp_3_rw_224",
+    backbone="maxxvit_rmlp_small_rw_256",
+    # vol_size=(128, 128, 128),
+    vol_size=(256, 256, 256),
+    loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
+    # loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=12,
-    gradient_acc_steps=3,
+    gradient_acc_steps=16,
     drop_rate=0.2,
     drop_rate_last=0.,
     drop_path_rate=0.2,
@@ -30,7 +30,7 @@ CONFIG = dict(
     out_dim=3,
     epochs=45,
     tune_epochs=5,
-    batch_size=5,
+    batch_size=1,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -92,7 +92,7 @@ class Classifier3dMultihead(nn.Module):
 def train_model_3d(backbone, model_label: str):
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, p=CONFIG["aug_prob"]),
+        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
@@ -106,8 +106,8 @@ def train_model_3d(backbone, model_label: str):
                                                                    transform_3d_train=transform_3d_train,
                                                                    transform_3d_val=transform_3d_val,
                                                                    base_path=os.path.join(
-                                                                DATA_BASEPATH,
-                                                                "train_images"),
+                                                                    DATA_BASEPATH,
+                                                                    "train_images"),
                                                                    vol_size=CONFIG["vol_size"],
                                                                    num_workers=CONFIG["num_workers"],
                                                                    split_k=CONFIG["split_k"],
@@ -128,6 +128,9 @@ def train_model_3d(backbone, model_label: str):
         "alt_val": [
             CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_classes"])
         ],
+        "weighted_alt_val": [
+            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]) for i in range(CONFIG["num_classes"])
+        ],
         "unweighted_alt_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_classes"])
         ]
@@ -137,6 +140,7 @@ def train_model_3d(backbone, model_label: str):
         if index != 3:
             continue
         model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_classes"]).to(device)
+        model.load_state_dict(torch.load("models/maxxvit_rmlp_small_rw_256_256_3d_fold_3_pt1/maxxvit_rmlp_small_rw_256_256_3d_fold_3_20.pt"))
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4),
         ]
@@ -320,11 +324,11 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 def train():
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
-                                  "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_35.pt",
-                                  fold_index=0)
+    model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
+    # model = tune_stage_2_model_3d(CONFIG['backbone'],
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
+    #                               "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_35.pt",
+    #                               fold_index=0)
 
 if __name__ == '__main__':
     train()
