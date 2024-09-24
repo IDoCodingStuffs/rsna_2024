@@ -24,7 +24,7 @@ filtered_df = filtered_df[filtered_df.groupby(["study_id"]).transform('size') ==
 
 series_descs = {e[0]: e[1] for e in df[["series_id", "series_description"]].drop_duplicates().values}
 
-bounding_boxes = pd.read_csv("./data/lumbar-coordinate-pretraining-dataset/bounding_boxes_3d.csv")
+bounding_boxes = pd.read_csv("./data/SpineNet/bounding_boxes_3d.csv")
 
 
 def worker_loop(dirslice):
@@ -40,20 +40,9 @@ def worker_loop(dirslice):
 
         for i in range(len(study_bounds)):
             row = study_bounds.iloc[i]
-
-            if row['level'] == "L5/S1":
-                read_vertebral_level_as_voxel_grid(
-                    dir,
-                    vertebral_level="l5s1",
-                    min_bound=np.array([row['x_min'], row['y_min'], row['z_min']]),
-                    max_bound=np.array([row['x_max'], row['y_max'], row['z_max']]),
-                    series_type_dict=series_descs,
-                    voxel_size=(96, 96, int(96 / 3 * 2)))
-
-            else:
-                levels.append(row['level'].replace("/", "").lower())
-                min_bounds.append(np.array([row['x_min'], row['y_min'], row['z_min']]))
-                max_bounds.append(np.array([row['x_max'], row['y_max'], row['z_max']]))
+            levels.append(row['level'].replace("/", "").lower())
+            min_bounds.append(np.array([row['x_min'], row['y_min'], row['z_min']]))
+            max_bounds.append(np.array([row['x_max'], row['y_max'], row['z_max']]))
 
         read_vertebral_levels_as_voxel_grids(
             dir,
@@ -61,7 +50,7 @@ def worker_loop(dirslice):
             min_bounds=min_bounds,
             max_bounds=max_bounds,
             series_type_dict=series_descs,
-            voxel_size=(96, 96, int(96 / 3)))
+            voxel_size=(128, 128, 128))
 
 
 if __name__ == "__main__":

@@ -15,14 +15,14 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
-    # backbone="coatnet_rmlp_3_rw_224",
-    backbone="maxxvit_rmlp_small_rw_256",
-    # vol_size=(128, 128, 128),
-    vol_size=(256, 256, 256),
-    loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
-    # loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
+    backbone="coatnet_rmlp_3_rw_224",
+    # backbone="maxxvit_rmlp_small_rw_256",
+    vol_size=(128, 128, 128),
+    # vol_size=(256, 256, 256),
+    # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
+    loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=12,
-    gradient_acc_steps=16,
+    gradient_acc_steps=4,
     drop_rate=0.2,
     drop_rate_last=0.,
     drop_path_rate=0.2,
@@ -30,7 +30,7 @@ CONFIG = dict(
     out_dim=3,
     epochs=45,
     tune_epochs=5,
-    batch_size=1,
+    batch_size=5,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -167,10 +167,9 @@ def train_model_3d(backbone, model_label: str):
 
 
 def train_stage_2_model_3d(backbone, model_label: str):
-    bounds_dataframe = pd.read_csv(os.path.join("data/lumbar-coordinate-pretraining-dataset/bounding_boxes_3d.csv"))
+    bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
 
     transform_3d_train = tio.Compose([
-        tio.CropOrPad(target_shape=CONFIG["vol_size"]),
         tio.ZNormalization(),
         tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
@@ -179,11 +178,11 @@ def train_stage_2_model_3d(backbone, model_label: str):
     ])
 
     transform_3d_val = tio.Compose([
-        tio.CropOrPad(target_shape=CONFIG["vol_size"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
-    dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(TRAINING_DATA,
+    train_data = TRAINING_DATA[TRAINING_DATA["study_id"].isin(bounds_dataframe["study_id"])]
+    dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
                                                                       boundaries_df=bounds_dataframe,
                                                                    transform_3d_train=transform_3d_train,
                                                                    transform_3d_val=transform_3d_val,
@@ -209,6 +208,9 @@ def train_stage_2_model_3d(backbone, model_label: str):
         ],
         "alt_val": [
             CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
+        ],
+        "weighted_alt_val": [
+            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_alt_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
@@ -243,7 +245,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
 
 def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_index: int):
-    bounds_dataframe = pd.read_csv(os.path.join("data/lumbar-coordinate-pretraining-dataset/bounding_boxes_3d.csv"))
+    bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
 
     transform_3d_train = tio.Compose([
         tio.CropOrPad(target_shape=CONFIG["vol_size"]),
@@ -323,8 +325,8 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
+    # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
     #                               "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_35.pt",
