@@ -1,9 +1,10 @@
 import os.path
 
+import torch.nn.utils
 from tqdm import tqdm
 import logging
 from torch.profiler import profile, record_function, ProfilerActivity
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from rsna_dataloader import *
@@ -36,7 +37,7 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
         for images, label in tqdm(val_loader, desc=f"Validating epoch {epoch}"):
             label = label.to(device).unsqueeze(-1)
 
-            with autocast(enabled=device != "cpu", dtype=torch.bfloat16):
+            with autocast("cuda", dtype=torch.bfloat16):
                 output = model(images.to(device))
 
                 for index, loss_fn in enumerate(loss_fns["train"]):
@@ -171,7 +172,7 @@ def train_model_with_validation(model,
             images, label = val
             label = label.to(device).unsqueeze(-1)
 
-            with autocast(enabled=device != "cpu", dtype=torch.bfloat16):
+            with autocast("cuda", dtype=torch.bfloat16):
                 output = model(images.to(device))
 
                 del images
@@ -192,6 +193,7 @@ def train_model_with_validation(model,
 
             scaler.scale(loss).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1e9)
+            # torch.nn.utils.clip_grad_value_(model.parameters(), 10)
 
             del output
 
