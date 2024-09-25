@@ -627,7 +627,7 @@ def read_vertebral_level_as_voxel_grid(dir_path,
                                        voxel_size=(128, 128, 32),
                                        caching=True,
                                        ):
-    cache_path = os.path.join(dir_path, f"cached_grid_stacked_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+    cache_path = os.path.join(dir_path, f"cached_grid_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
     if caching and os.path.exists(cache_path):
         try:
@@ -688,7 +688,7 @@ def read_vertebral_levels_as_voxel_grids(dir_path,
     ret = {}
 
     for index, vertebral_level in enumerate(vertebral_levels):
-        cache_path = os.path.join(dir_path, f"cached_grid_stacked_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+        cache_path = os.path.join(dir_path, f"cached_grid_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
         f = None
         if os.path.exists(cache_path):
             try:
