@@ -79,7 +79,7 @@ class Classifier3dMultihead(nn.Module):
             self.heads = nn.ModuleList(
                 [nn.Sequential(
                     nn.Linear(head_in_dim, CONFIG["out_dim"]),
-                    nn.Sigmoid()
+                    # nn.Softmax(dim=-1)
                 ) for i in range(out_classes)]
             )
 
@@ -304,10 +304,10 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
             nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
-            CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
         ],
         "alt_val": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
+            # CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
         ],
         "weighted_alt_val": [
             # nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
