@@ -35,7 +35,7 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
         model.eval()
 
         for images, label in tqdm(val_loader, desc=f"Validating epoch {epoch}"):
-            label = label.to(device).unsqueeze(-1)
+            label = label.to(device) #.unsqueeze(-1)
 
             with autocast("cuda", dtype=torch.bfloat16):
                 output = model(images.to(device))
@@ -56,7 +56,6 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
 
                 for index, loss_fn in enumerate(loss_fns["alt_val"]):
                     if len(loss_fns["alt_val"]) > 1:
-                        # !TODO: Label squeezed for CE loss
                         # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
                         loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
                     else:
@@ -180,10 +179,11 @@ def train_model_with_validation(model,
                 losses = loss_fns["train"]
                 if freeze_backbone_after_epochs >= 0 and epoch >= freeze_backbone_after_epochs:
                     freeze_model_backbone(model)
-                    losses = loss_fns["alt_val"]
+                    if len(loss_fns["alt_val"]) > 0:
+                        losses = loss_fns["alt_val"]
 
                 if len(losses) > 1:
-                    loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index]) / gradient_accumulation_per) for
+                    loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index].squeeze(-1)) / gradient_accumulation_per) for
                                 loss_index, loss_fn in enumerate(losses)]) / len(losses)
                 else:
                     loss = losses[0](output, label) / gradient_accumulation_per
