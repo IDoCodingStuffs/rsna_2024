@@ -17,19 +17,20 @@ CONFIG = dict(
     image_interpolation="bspline",
     backbone="coatnet_rmlp_3_rw_224",
     # backbone="maxxvit_rmlp_small_rw_256",
+    head_type="softmax", # {"sigmoid", "cumulog"}
     vol_size=(128, 128, 128),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
-    loss_weights=CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR,
+    loss_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR,
     num_workers=12,
     gradient_acc_steps=4,
-    drop_rate=0.2,
+    drop_rate=0.3,
     drop_rate_last=0.,
-    drop_path_rate=0.2,
+    drop_path_rate=0.3,
     aug_prob=0.9,
     out_dim=3,
     epochs=45,
-    tune_epochs=5,
+    tune_epochs=15,
     batch_size=5,
     split_rate=0.25,
     split_k=5,
@@ -39,10 +40,13 @@ CONFIG = dict(
 DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
+def noop():
+    pass
 
 class Classifier3dMultihead(nn.Module):
     def __init__(self,
                  backbone="efficientnet_lite0",
+                 head_type="cumulog",
                  in_chans=1,
                  out_classes=5,
                  cutpoint_margin=0,
@@ -71,14 +75,25 @@ class Classifier3dMultihead(nn.Module):
             head_in_dim = self.backbone.head.fc.in_features
             self.backbone.head.fc = nn.Identity()
 
-        self.heads = nn.ModuleList(
-            [nn.Sequential(
-                nn.Linear(head_in_dim, 1),
-                LogisticCumulativeLink(CONFIG["out_dim"])
-            ) for i in range(out_classes)]
-        )
+        if head_type == "softmax":
+            self.heads = nn.ModuleList(
+                [nn.Sequential(
+                    nn.Linear(head_in_dim, CONFIG["out_dim"]),
+                    nn.Sigmoid()
+                ) for i in range(out_classes)]
+            )
 
-        self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
+            self.ascension_callback = noop
+
+        elif head_type == "cumulog":
+            self.heads = nn.ModuleList(
+                [nn.Sequential(
+                    nn.Linear(head_in_dim, 1),
+                    LogisticCumulativeLink(CONFIG["out_dim"])
+                ) for i in range(out_classes)]
+            )
+
+            self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
 
     def forward(self, x):
         feat = self.backbone(x)
@@ -171,7 +186,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
+        # tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
+        tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
@@ -198,6 +214,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                                                    )
 
     schedulers = [
+
     ]
     criteria = {
         "train": [
@@ -220,7 +237,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"]).to(device)
         if index == 0:
-            model.load_state_dict(torch.load("models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_pt2/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_6.pt"))
+            model.load_state_dict(torch.load("models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_pt3/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_35.pt"))
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4),
         ]
@@ -283,7 +300,8 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
+            # CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
             CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
@@ -292,17 +310,22 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
             CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
         ],
         "weighted_alt_val": [
-            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
+            # nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_alt_val": [
-            nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
+            # nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
         ]
     }
 
     fold = dataset_folds[fold_index]
-    model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"]).to(device)
-    model.load_state_dict(torch.load(model_path))
+    initial_model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"], head_type="cumulog").to(device)
+    initial_model.load_state_dict(torch.load(model_path))
+
+    model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"], head_type=CONFIG["head_type"]).to(device)
+    model.backbone = initial_model.backbone
+
     optimizers = [
+        # torch.optim.AdamW(model.backbone.parameters(), lr=5e-6),
         torch.optim.AdamW(model.parameters(), lr=3e-4),
     ]
 
@@ -320,7 +343,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 freeze_backbone_initial_epochs=-1,
                                 freeze_backbone_after_epochs=0,
                                 loss_weights=CONFIG["loss_weights"],
-                                callbacks=[model._ascension_callback],
+                                # callbacks=[model._ascension_callback],
                                 gradient_accumulation_per=CONFIG["gradient_acc_steps"]
                                 )
 
@@ -328,11 +351,11 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_{CONFIG['head_type']}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
-                                  "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_pt3/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_6.pt",
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_{CONFIG['head_type']}_retuned",
+                                  "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_pt5/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_15.pt",
                                   fold_index=0)
 
 if __name__ == '__main__':
