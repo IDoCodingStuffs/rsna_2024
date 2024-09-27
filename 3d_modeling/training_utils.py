@@ -40,49 +40,48 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
             with autocast("cuda", dtype=torch.bfloat16):
                 output = model(images.to(device))
 
-                for index, loss_fn in enumerate(loss_fns["train"]):
-                    if len(loss_fns["train"]) > 1:
-                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
-                    else:
-                        loss = loss_fn(output, label) / len(loss_fns["train"])
-                    val_loss += loss.cpu().item()
+            for index, loss_fn in enumerate(loss_fns["train"]):
+                if len(loss_fns["train"]) > 1:
+                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
+                else:
+                    loss = loss_fn(output, label) / len(loss_fns["train"])
+                val_loss += loss.cpu().item()
 
-                for index, loss_fn in enumerate(loss_fns["unweighted_val"]):
-                    if len(loss_fns["unweighted_val"]) > 1:
-                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["unweighted_val"])
-                    else:
-                        loss = loss_fn(output, label) / len(loss_fns["unweighted_val"])
-                    unweighted_val_loss += loss.cpu().item()
+            for index, loss_fn in enumerate(loss_fns["unweighted_val"]):
+                if len(loss_fns["unweighted_val"]) > 1:
+                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["unweighted_val"])
+                else:
+                    loss = loss_fn(output, label) / len(loss_fns["unweighted_val"])
+                unweighted_val_loss += loss.cpu().item()
 
-                for index, loss_fn in enumerate(loss_fns["alt_val"]):
-                    if len(loss_fns["alt_val"]) > 1:
-                        # !TODO: Label squeezed for CE loss
-                        # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
-                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
-                    else:
-                        loss = loss_fn(output, label) / len(loss_fns["alt_val"])
-                    alt_val_loss += loss.cpu().item()
+            for index, loss_fn in enumerate(loss_fns["alt_val"]):
+                if len(loss_fns["alt_val"]) > 1:
+                    # !TODO: Label squeezed for CE loss
+                    # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
+                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
+                else:
+                    loss = loss_fn(output, label) / len(loss_fns["alt_val"])
+                alt_val_loss += loss.cpu().item()
 
-                for index, loss_fn in enumerate(loss_fns["unweighted_alt_val"]):
-                    if len(loss_fns["unweighted_alt_val"]) > 1:
-                        # !TODO: Label squeezed for CE loss
-                        loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(
-                            loss_fns["unweighted_alt_val"])
-                    else:
-                        loss = loss_fn(output, label) / len(loss_fns["unweighted_alt_val"])
-                    unweighted_alt_val_loss += loss.cpu().item()
+            for index, loss_fn in enumerate(loss_fns["unweighted_alt_val"]):
+                if len(loss_fns["unweighted_alt_val"]) > 1:
+                    # !TODO: Label squeezed for CE loss
+                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
+                    loss = loss_fn(output[:, index], label_) / len(
+                        loss_fns["unweighted_alt_val"])
+                else:
+                    loss = loss_fn(output, label) / len(loss_fns["unweighted_alt_val"])
+                unweighted_alt_val_loss += loss.cpu().item()
 
-                for index, loss_fn in enumerate(loss_fns["weighted_alt_val"]):
-                    if len(loss_fns["weighted_alt_val"]) > 1:
-                        # !TODO: Label squeezed for CE loss
-                        loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(
-                            loss_fns["weighted_alt_val"])
-                    else:
-                        loss = loss_fn(output, label) / len(loss_fns["weighted_alt_val"])
-                    weighted_alt_val_loss += loss.cpu().item()
-
-                del output
-            # torch.cuda.empty_cache()
+            for index, loss_fn in enumerate(loss_fns["weighted_alt_val"]):
+                if len(loss_fns["weighted_alt_val"]) > 1:
+                    # !TODO: Label squeezed for CE loss
+                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
+                    loss = loss_fn(output[:, index], label_) / len(
+                        loss_fns["weighted_alt_val"])
+                else:
+                    loss = loss_fn(output, label) / len(loss_fns["weighted_alt_val"])
+                weighted_alt_val_loss += loss.cpu().item()
 
         val_loss = val_loss / len(val_loader)
         unweighted_val_loss = unweighted_val_loss / len(val_loader)
@@ -219,8 +218,8 @@ def train_model_with_validation(model,
         (epoch_validation_loss,
          epoch_unweighted_validation_loss,
          epoch_alt_validation_loss,
-         epoch_unweighted_alt_validation_loss,
-         epoch_weighted_alt_validation_loss) = (
+         epoch_weighted_alt_validation_loss,
+         epoch_unweighted_alt_validation_loss) = (
             model_validation_loss(model, val_loader, loss_fns, epoch)
         )
 
@@ -241,7 +240,7 @@ def train_model_with_validation(model,
         epoch_unweighted_validation_losses.append(epoch_unweighted_validation_loss)
         epoch_alt_validation_losses.append(epoch_alt_validation_loss)
         epoch_unweighted_alt_validation_losses.append(epoch_unweighted_alt_validation_loss)
-        epoch_weighted_alt_validation_losses.append(epoch_unweighted_alt_validation_loss)
+        epoch_weighted_alt_validation_losses.append(epoch_weighted_alt_validation_loss)
 
         epoch_losses.append(epoch_loss)
 
