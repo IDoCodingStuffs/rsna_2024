@@ -702,6 +702,8 @@ def read_vertebral_level_as_voxel_grid_alt(dir_path,
                 f.close()
             os.remove(cache_path)
 
+    resize = tio.Resize(voxel_size)
+
     if pcd_overall is None:
         pcd_overall = read_study_as_pcd(dir_path,
                                         series_types_dict=series_type_dict,
@@ -717,35 +719,18 @@ def read_vertebral_level_as_voxel_grid_alt(dir_path,
     voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
                                                                    color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
-    # bbox = pcd_level.get_axis_aligned_bounding_box()
-    #
-    # max_b = np.array(bbox.get_max_bound())
-    # min_b = np.array(bbox.get_min_bound())
-    #
-    # pts = (np.array(pcd_level.points) - min_b) * (
-    #         (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / (max_b - min_b))
-    # coords = np.round(pts).astype(np.int32)
-    # vals = np.array(pcd_level.colors, dtype=np.float16)
 
-    coords = []
-    vals = []
+    coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
+    vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
 
-    for voxel in voxel_level.get_voxels():
-        coords.append(voxel.grid_index)
-        vals.append(voxel.color)
-
-    max_b = np.max(coords, axis=0) + 1
-
-    coords = np.array(coords) * (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / max_b
-    coords = np.round(coords).astype(np.int32)
-    vals = np.array(vals, dtype=np.float16)
-
-    grid = np.zeros((3, voxel_size[0], voxel_size[1], voxel_size[2]), dtype=np.float16)
+    size = np.max(coords, axis=0) + 1
+    grid = np.zeros((3, size[0], size[1], size[2]), dtype=np.float32)
     indices = coords[:, 0], coords[:, 1], coords[:, 2]
 
-    np.maximum.at(grid[0], indices, vals[:, 0])
-    np.maximum.at(grid[1], indices, vals[:, 1])
-    np.maximum.at(grid[2], indices, vals[:, 2])
+    for i in range(3):
+        grid[i][indices] = vals[:, i]
+
+    grid = resize(grid)
 
     if caching:
         f = pgzip.PgzipFile(cache_path, "w")
@@ -803,9 +788,8 @@ def read_vertebral_levels_as_voxel_grids(dir_path,
             grid = np.zeros((3, voxel_size[0], voxel_size[1], voxel_size[2]), dtype=np.float16)
             indices = coords[:, 0], coords[:, 1], coords[:, 2]
 
-            np.maximum.at(grid[0], indices, vals[:, 0])
-            np.maximum.at(grid[1], indices, vals[:, 1])
-            np.maximum.at(grid[2], indices, vals[:, 2])
+            for i in range(3):
+                grid[i][indices] = vals[:, i]
 
             f = pgzip.PgzipFile(cache_path, "w")
             np.save(f, grid)
@@ -825,6 +809,8 @@ def read_vertebral_levels_as_voxel_grids_alt(dir_path,
                                          downsampling_factor=1,
                                          voxel_size=(128, 128, 42)):
     ret = {}
+
+    resize = tio.Resize(voxel_size)
 
     for index, vertebral_level in enumerate(vertebral_levels):
         cache_path = os.path.join(dir_path, f"cached_grid_alt_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
@@ -856,35 +842,17 @@ def read_vertebral_levels_as_voxel_grids_alt(dir_path,
             voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
                                                                            color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
-            # bbox = pcd_level.get_axis_aligned_bounding_box()
-            #
-            # max_b = np.array(bbox.get_max_bound())
-            # min_b = np.array(bbox.get_min_bound())
-            #
-            # pts = (np.array(pcd_level.points) - min_b) * (
-            #         (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / (max_b - min_b))
-            # coords = np.round(pts).astype(np.int32)
-            # vals = np.array(pcd_level.colors, dtype=np.float16)
+            coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
+            vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
 
-            coords = []
-            vals = []
-
-            for voxel in voxel_level.get_voxels():
-                coords.append(voxel.grid_index)
-                vals.append(voxel.color)
-
-            max_b = np.max(coords, axis=0) + 1
-
-            coords = np.array(coords) * (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / max_b
-            coords = np.round(coords).astype(np.int32)
-            vals = np.array(vals, dtype=np.float16)
-
-            grid = np.zeros((3, voxel_size[0], voxel_size[1], voxel_size[2]), dtype=np.float16)
+            size = np.max(coords, axis=0) + 1
+            grid = np.zeros((3, size[0], size[1], size[2]), dtype=np.float32)
             indices = coords[:, 0], coords[:, 1], coords[:, 2]
 
-            np.maximum.at(grid[0], indices, vals[:, 0])
-            np.maximum.at(grid[1], indices, vals[:, 1])
-            np.maximum.at(grid[2], indices, vals[:, 2])
+            for i in range(3):
+                grid[i][indices] = vals[:, i]
+
+            grid = resize(grid)
 
             f = pgzip.PgzipFile(cache_path, "w")
             np.save(f, grid)
