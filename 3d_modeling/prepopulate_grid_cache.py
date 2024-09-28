@@ -29,7 +29,7 @@ bounding_boxes = pd.read_csv("./data/SpineNet/bounding_boxes_3d.csv")
 
 def worker_loop(dirslice):
     for dir in tqdm(dirslice):
-        study_id = dir.split("/")[-1].split("\\")[-2]
+        study_id = dir.split("/")[-2]
         study_bounds = bounding_boxes[bounding_boxes['study_id'] == int(study_id)].sort_values(by="level", ascending=True)
 
         # read_study_as_voxel_grid_v2(dir, series_descs)
@@ -50,7 +50,7 @@ def worker_loop(dirslice):
             min_bounds=min_bounds,
             max_bounds=max_bounds,
             series_type_dict=series_descs,
-            voxel_size=(128, 128, 128))
+            voxel_size=(96, 96, 96))
 
 
 if __name__ == "__main__":
