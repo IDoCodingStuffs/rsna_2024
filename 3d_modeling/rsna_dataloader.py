@@ -677,6 +677,83 @@ def read_vertebral_level_as_voxel_grid(dir_path,
     return grid
 
 
+def read_vertebral_level_as_voxel_grid_alt(dir_path,
+                                       vertebral_level: str,
+                                       max_bound: np.array,
+                                       min_bound: np.array,
+                                       pcd_overall: o3d.geometry.PointCloud = None,
+                                       series_type_dict=None,
+                                       downsampling_factor=1,
+                                       voxel_size=(128, 128, 32),
+                                       caching=True,
+                                       ):
+    cache_path = os.path.join(dir_path,
+                              f"cached_grid_alt_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+    f = None
+    if caching and os.path.exists(cache_path):
+        try:
+            f = pgzip.PgzipFile(cache_path, "r")
+            ret = np.load(f, allow_pickle=True)
+            f.close()
+            return ret
+        except Exception as e:
+            print(dir_path, "\n", e)
+            if f:
+                f.close()
+            os.remove(cache_path)
+
+    if pcd_overall is None:
+        pcd_overall = read_study_as_pcd(dir_path,
+                                        series_types_dict=series_type_dict,
+                                        downsampling_factor=downsampling_factor,
+                                        img_size=(voxel_size[0], voxel_size[1]),
+                                        stack_slices_thickness=True,
+                                        resize_slices=False)
+
+    bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+    pcd_level = pcd_overall.crop(bbox)
+
+    size = 1
+    voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
+                                                                   color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
+
+    # bbox = pcd_level.get_axis_aligned_bounding_box()
+    #
+    # max_b = np.array(bbox.get_max_bound())
+    # min_b = np.array(bbox.get_min_bound())
+    #
+    # pts = (np.array(pcd_level.points) - min_b) * (
+    #         (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / (max_b - min_b))
+    # coords = np.round(pts).astype(np.int32)
+    # vals = np.array(pcd_level.colors, dtype=np.float16)
+
+    coords = []
+    vals = []
+
+    for voxel in voxel_level.get_voxels():
+        coords.append(voxel.grid_index)
+        vals.append(voxel.color)
+
+    max_b = np.max(coords, axis=0) + 1
+
+    coords = np.array(coords) * (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / max_b
+    coords = np.round(coords).astype(np.int32)
+    vals = np.array(vals, dtype=np.float16)
+
+    grid = np.zeros((3, voxel_size[0], voxel_size[1], voxel_size[2]), dtype=np.float16)
+    indices = coords[:, 0], coords[:, 1], coords[:, 2]
+
+    np.maximum.at(grid[0], indices, vals[:, 0])
+    np.maximum.at(grid[1], indices, vals[:, 1])
+    np.maximum.at(grid[2], indices, vals[:, 2])
+
+    if caching:
+        f = pgzip.PgzipFile(cache_path, "w")
+        np.save(f, grid)
+        f.close()
+
+    return grid
+
 def read_vertebral_levels_as_voxel_grids(dir_path,
                                          vertebral_levels: list[str],
                                          max_bounds: list[np.array],
@@ -722,6 +799,85 @@ def read_vertebral_levels_as_voxel_grids(dir_path,
                     (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / (max_b - min_b))
             coords = np.round(pts).astype(np.int32)
             vals = np.array(pcd_level.colors, dtype=np.float16)
+
+            grid = np.zeros((3, voxel_size[0], voxel_size[1], voxel_size[2]), dtype=np.float16)
+            indices = coords[:, 0], coords[:, 1], coords[:, 2]
+
+            np.maximum.at(grid[0], indices, vals[:, 0])
+            np.maximum.at(grid[1], indices, vals[:, 1])
+            np.maximum.at(grid[2], indices, vals[:, 2])
+
+            f = pgzip.PgzipFile(cache_path, "w")
+            np.save(f, grid)
+            f.close()
+
+            ret[vertebral_level] = grid
+
+    return ret
+
+
+def read_vertebral_levels_as_voxel_grids_alt(dir_path,
+                                         vertebral_levels: list[str],
+                                         max_bounds: list[np.array],
+                                         min_bounds: list[np.array],
+                                         pcd_overall: o3d.geometry.PointCloud = None,
+                                         series_type_dict=None,
+                                         downsampling_factor=1,
+                                         voxel_size=(128, 128, 42)):
+    ret = {}
+
+    for index, vertebral_level in enumerate(vertebral_levels):
+        cache_path = os.path.join(dir_path, f"cached_grid_alt_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+        f = None
+        if os.path.exists(cache_path):
+            try:
+                f = pgzip.PgzipFile(cache_path, "r")
+                ret[vertebral_level] = np.load(f, allow_pickle=True)
+                f.close()
+            except Exception as e:
+                print(dir_path, "\n", e)
+                if f:
+                    f.close()
+                os.remove(cache_path)
+
+        else:
+            if pcd_overall is None:
+                pcd_overall = read_study_as_pcd(dir_path,
+                                                series_types_dict=series_type_dict,
+                                                downsampling_factor=downsampling_factor,
+                                                img_size=(voxel_size[0], voxel_size[2]),
+                                                stack_slices_thickness=True,
+                                                resize_slices=False)
+
+            bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bounds[index], max_bound=max_bounds[index])
+            pcd_level = pcd_overall.crop(bbox)
+
+            size = 1
+            voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
+                                                                           color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
+
+            # bbox = pcd_level.get_axis_aligned_bounding_box()
+            #
+            # max_b = np.array(bbox.get_max_bound())
+            # min_b = np.array(bbox.get_min_bound())
+            #
+            # pts = (np.array(pcd_level.points) - min_b) * (
+            #         (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / (max_b - min_b))
+            # coords = np.round(pts).astype(np.int32)
+            # vals = np.array(pcd_level.colors, dtype=np.float16)
+
+            coords = []
+            vals = []
+
+            for voxel in voxel_level.get_voxels():
+                coords.append(voxel.grid_index)
+                vals.append(voxel.color)
+
+            max_b = np.max(coords, axis=0) + 1
+
+            coords = np.array(coords) * (voxel_size[0] - 1, voxel_size[1] - 1, voxel_size[2] - 1) / max_b
+            coords = np.round(coords).astype(np.int32)
+            vals = np.array(vals, dtype=np.float16)
 
             grid = np.zeros((3, voxel_size[0], voxel_size[1], voxel_size[2]), dtype=np.float16)
             indices = coords[:, 0], coords[:, 1], coords[:, 2]

@@ -44,13 +44,13 @@ def worker_loop(dirslice):
             min_bounds.append(np.array([row['x_min'], row['y_min'], row['z_min']]))
             max_bounds.append(np.array([row['x_max'], row['y_max'], row['z_max']]))
 
-        read_vertebral_levels_as_voxel_grids(
+        read_vertebral_levels_as_voxel_grids_alt(
             dir,
             vertebral_levels=levels,
             min_bounds=min_bounds,
             max_bounds=max_bounds,
             series_type_dict=series_descs,
-            voxel_size=(96, 96, 96))
+            voxel_size=(128, 128, 128))
 
 
 if __name__ == "__main__":
