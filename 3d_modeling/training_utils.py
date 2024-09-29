@@ -191,7 +191,7 @@ def train_model_with_validation(model,
                 del label
 
             scaler.scale(loss).backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1e9)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
             # torch.nn.utils.clip_grad_value_(model.parameters(), 10)
 
             del output

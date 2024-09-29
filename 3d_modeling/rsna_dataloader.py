@@ -402,6 +402,7 @@ def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
         train_loader = DataLoader(train_dataset,
                                   batch_size=batch_size,
                                   shuffle=True,
+                                  drop_last=True,
                                   num_workers=num_workers,
                                   pin_memory=pin_memory,
                                   persistent_workers=num_workers > 0)
@@ -427,7 +428,8 @@ def read_study_as_pcd(dir_path,
                       resize_method="nearest",
                       stack_slices_thickness=True,
                       img_size=(256, 256)):
-    pcd_overall = o3d.geometry.PointCloud()
+    pcd_sagittal = o3d.geometry.PointCloud()
+    pcd_axial = o3d.geometry.PointCloud()
 
     for path in glob.glob(os.path.join(dir_path, "**/*.dcm"), recursive=True):
         dicom_slice = dcmread(path)
@@ -498,7 +500,7 @@ def read_study_as_pcd(dir_path,
         transform_matrix = transform_matrix @ transform_matrix_factor
 
         if stack_slices_thickness:
-            for z in range(int(dZ)):
+            for z in range(int(dZ) + 1):
                 pos = list(dicom_slice.ImagePositionPatient)
                 if series_desc == "T2":
                     pos[-1] += z
@@ -509,12 +511,21 @@ def read_study_as_pcd(dir_path,
                 transform_matrix = np.array([X, Y, np.zeros(len(X)), S]).T
                 transform_matrix = transform_matrix @ transform_matrix_factor
 
-                pcd_overall += copy.deepcopy(pcd).transform(transform_matrix)
+                if series_desc == "T2":
+                    pcd_axial += copy.deepcopy(pcd).transform(transform_matrix)
+                else:
+                    pcd_sagittal += copy.deepcopy(pcd).transform(transform_matrix)
 
         else:
-            pcd_overall += copy.deepcopy(pcd).transform(transform_matrix)
+            if series_desc == "T2":
+                pcd_axial += copy.deepcopy(pcd).transform(transform_matrix)
+            else:
+                pcd_sagittal += copy.deepcopy(pcd).transform(transform_matrix)
 
-    return pcd_overall
+    bbox = pcd_sagittal.get_oriented_bounding_box()
+    pcd_axial = pcd_axial.crop(bbox)
+
+    return pcd_axial + pcd_sagittal
 
 
 def read_study_as_voxel_grid(dir_path, channel_count=3, downsampling_factor=1, series_type_dict=None,
