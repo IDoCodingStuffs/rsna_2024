@@ -31,7 +31,7 @@ class Config:
     data_path = "./data/rsna-2024-lumbar-spine-degenerative-classification/processed_studies/"
 
     # Model
-    backbone = "coatnet_rmlp_3_rw"
+    backbone = "efficientnet_b0"
     drop_rate = 0.3
     drop_path_rate = 0.3
     drop_rate_last = 0.
