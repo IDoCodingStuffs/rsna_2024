@@ -31,7 +31,7 @@ class Config:
     data_path = "/Data/RSNA/processed_studies/"
 
     # Model
-    backbone = "coatnet_rmlp_3_rw"
+    backbone = "tf_efficientnet_b0.in1k"
     drop_rate = 0.3
     drop_path_rate = 0.3
     drop_rate_last = 0.

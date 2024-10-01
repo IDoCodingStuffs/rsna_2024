@@ -55,7 +55,7 @@ def worker_loop(dirslice):
             min_bounds.append(np.array([row["x_min"], row["y_min"], row["z_min"]]))
             max_bounds.append(np.array([row["x_max"], row["y_max"], row["z_max"]]))
 
-        read_vertebral_levels_as_voxel_grids_alt(
+        read_vertebral_levels_as_voxel_grids(
             dir,
             study_id,
             vertebral_levels=levels,
@@ -68,44 +68,45 @@ def worker_loop(dirslice):
 
 if __name__ == "__main__":
 
-    # print("Caching 3d volumes and train dataframe...")
-    # dirs = [
-    #     Config.data_basepath + "train_images/" + str(study_id)
-    #     for study_id in train_df.study_id.unique()
-    # ]
-    # dirs = sorted(dirs)
+    print("Caching 3d volumes and train dataframe...")
+    dirs = [
+        Config.data_basepath + "train_images/" + str(study_id)
+        for study_id in train_df.study_id.unique()
+    ]
+    dirs = sorted(dirs)
 
-    # slice_size = math.ceil(len(dirs) / Config.num_workers)
+    slice_size = math.ceil(len(dirs) / Config.num_workers)
 
-    # workers = []
-    # for worker_index in range(Config.num_workers):
-    #     dirslice = dirs[slice_size * worker_index : slice_size * (worker_index + 1)]
-    #     p = Process(target=worker_loop, args=(dirslice,))
-    #     p.start()
-    #     workers.append(p)
+    workers = []
+    for worker_index in range(Config.num_workers):
+        dirslice = dirs[slice_size * worker_index : slice_size * (worker_index + 1)]
+        p = Process(target=worker_loop, args=(dirslice,))
+        p.start()
+        workers.append(p)
 
-    # for p in workers:
-    #     p.join()
+    for p in workers:
+        p.join()
 
     # Create the train dataframe with columns : study_id level path label
-    train_labels_df = pd.read_csv(Config.data_basepath + "train.csv").replace(Config.LABEL_MAP)
+    train_labels_df = pd.read_csv(Config.data_basepath + "train.csv")
 
     preprocessed_train = {
         "study_id": [],
         "level": [],
         "path": [],
-        "label": [],
+        "study_id": [],
     }
-    for idx, row in bb_3d_df.iterrows():
+    for row in bb_3d_df.iterrows():
         preprocessed_train["study_id"].append(row["study_id"])
         preprocessed_train["level"].append(row["level"])
         preprocessed_train["path"].append(
             Config.data_basepath
-            + f"processed_studies/{row['study_id']}_{row['level'].lower()}_{Config.crop_shape[0]}_{Config.crop_shape[1]}_{Config.crop_shape[2]}.npy.gz"
+            + f"processed_studies/{bb_3d_df['study_id']}_{bb_3d_df['level']}_{Config.crop_shape[0]}_{Config.crop_shape[1]}_{Config.crop_shape[2]}.npy.gz"
         )
-
-        label = train_labels_df[train_labels_df["study_id"] == int(row["study_id"])].values[0][Config.LEVEL_MAP[row["level"].lower()]+1::5].astype(np.int64)
-        preprocessed_train["label"].append(label)
+        label = train_labels_df[train_labels_df["study_id"] == row["study_id"]][
+            1 + Config.LEVELS_MAP[row["level"]] :: 5
+        ]
+        preprocessed_train["level"].append(label)
 
     preprocessed_train_df = pd.DataFrame.from_dict(preprocessed_train)
     preprocessed_train_df.to_csv(
