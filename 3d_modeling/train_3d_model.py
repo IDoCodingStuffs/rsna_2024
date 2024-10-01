@@ -207,7 +207,7 @@ def train_model_3d(backbone, model_label: str):
     return model
 
 
-def train_stage_2_model_3d(backbone, model_label: str):
+def train_stage_2_model_3d(backbone, model_label: str, type: str):
     bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
 
     transform_3d_train = tio.Compose([
@@ -224,21 +224,40 @@ def train_stage_2_model_3d(backbone, model_label: str):
     ])
 
     train_data = TRAINING_DATA[TRAINING_DATA["study_id"].isin(bounds_dataframe["study_id"])]
-    dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
-                                                                      boundaries_df=bounds_dataframe,
-                                                                   transform_3d_train=transform_3d_train,
-                                                                   transform_3d_val=transform_3d_val,
-                                                                   base_path=os.path.join(
-                                                                    DATA_BASEPATH,
-                                                                    "train_images"),
-                                                                   vol_size=CONFIG["vol_size"],
-                                                                   num_workers=CONFIG["num_workers"],
-                                                                   split_k=CONFIG["split_k"],
-                                                                   batch_size=CONFIG["batch_size"],
-                                                                   pin_memory=True,
-                                                                   use_mirroring_trick=True,
-                                                                   exclude_sacrum=True
-                                                                   )
+
+    if type == "lower":
+        dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
+                                                                          boundaries_df=bounds_dataframe,
+                                                                       transform_3d_train=transform_3d_train,
+                                                                       transform_3d_val=transform_3d_val,
+                                                                       base_path=os.path.join(
+                                                                        DATA_BASEPATH,
+                                                                        "train_images"),
+                                                                       vol_size=CONFIG["vol_size"],
+                                                                       num_workers=CONFIG["num_workers"],
+                                                                       split_k=CONFIG["split_k"],
+                                                                       batch_size=CONFIG["batch_size"],
+                                                                       pin_memory=True,
+                                                                       use_mirroring_trick=True,
+                                                                       sacrum_only=True
+                                                                       )
+    else:
+        dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
+                                                                          boundaries_df=bounds_dataframe,
+                                                                       transform_3d_train=transform_3d_train,
+                                                                       transform_3d_val=transform_3d_val,
+                                                                       base_path=os.path.join(
+                                                                        DATA_BASEPATH,
+                                                                        "train_images"),
+                                                                       vol_size=CONFIG["vol_size"],
+                                                                       num_workers=CONFIG["num_workers"],
+                                                                       split_k=CONFIG["split_k"],
+                                                                       batch_size=CONFIG["batch_size"],
+                                                                       pin_memory=True,
+                                                                       use_mirroring_trick=True,
+                                                                       exclude_sacrum=True
+                                                                       )
+
 
     schedulers = [
 
@@ -265,7 +284,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         # model = Classifier3dMultihead(backbone=backbone, in_chans=3).to(device)
         if index == 0:
-            model.load_state_dict(torch.load("models/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0_pt6/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0_35.pt"))
+            continue
         optimizers = [
             torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
@@ -321,7 +340,8 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                                                    split_k=CONFIG["split_k"],
                                                                    batch_size=CONFIG["batch_size"],
                                                                    pin_memory=True,
-                                                                   use_mirroring_trick=True
+                                                                   use_mirroring_trick=True,
+                                                                   sacrum_only=True
                                                                    )
 
     schedulers = [
@@ -373,13 +393,14 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_non_sacral")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_non_sacral", type="upper")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_sacral", type="lower")
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_modded_alt_{CONFIG['vol_size'][0]}_vertebrae")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
-    #                               "models/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0_35.pt",
-    #                               fold_index=0)
+    model = tune_stage_2_model_3d(CONFIG['backbone'],
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_sacral_tuned",
+                                  "models/coatnet_rmlp_3_rw_128_sacral_fold_0/coatnet_rmlp_3_rw_128_sacral_fold_0_38.pt",
+                                  fold_index=0)
 
 if __name__ == '__main__':
     train()
