@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 import sys
 
-sys.path.insert(0, "../../SpineNet")
+sys.path.append("data/SpineNet")
 import spinenet
 from spinenet import SpineNet, download_example_scan
 from spinenet.io import load_dicoms_from_folder
