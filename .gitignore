@@ -10,6 +10,7 @@ __pycache__
 figures
 traces
 dataframes
+wandb
 
 submission.csv
 foo.py
