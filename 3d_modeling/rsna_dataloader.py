@@ -122,7 +122,9 @@ class StudyPerVertebraLevelDataset(Dataset):
                  transform_3d=None,
                  is_train=False,
                  vol_size=(192, 192, 192),
-                 use_mirror_trick=False):
+                 use_mirror_trick=False,
+                 exclude_sacrum=False,
+                 sacrum_only=False):
         self.base_path = base_path
         self.is_train = is_train
         self.use_mirror_trick = use_mirror_trick
@@ -132,6 +134,14 @@ class StudyPerVertebraLevelDataset(Dataset):
         self.bounds_dataframe = bounds_dataframe
 
         self.subjects = self.dataframe[['study_id', 'level']].drop_duplicates().reset_index(drop=True)
+
+        if exclude_sacrum:
+            self.subjects = self.subjects[self.subjects['level'] != "L5/S1"]
+        elif sacrum_only:
+            self.subjects = self.subjects[self.subjects['level'] == "L5/S1"]
+        elif not sacrum_only:
+            raise ValueError("Cannot exclude sacrum and not sacrum_only at the same time")
+
         self.series = self.dataframe[["study_id", "series_id"]].drop_duplicates().groupby("study_id")[
             "series_id"].apply(list).to_dict()
         self.series_descs = {e[0]: e[1] for e in
@@ -357,7 +367,9 @@ def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
                                                    batch_size=1,
                                                    num_workers=0,
                                                    pin_memory=True,
-                                                   use_mirroring_trick=True):
+                                                   use_mirroring_trick=True,
+                                                   exclude_sacrum=False,
+                                                   sacrum_only=False):
     df = df.dropna()
     # This drops any subjects with nans
 
@@ -392,19 +404,23 @@ def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
                                           transform_3d=transform_3d_train,
                                           is_train=True,
                                           use_mirror_trick=use_mirroring_trick,
-                                          vol_size=vol_size
+                                          vol_size=vol_size,
+                                          exclude_sacrum=exclude_sacrum,
+                                          sacrum_only=sacrum_only
                                           )
         val_dataset = StudyPerVertebraLevelDataset(base_path, val_df, boundaries_df,
                                         transform_3d=transform_3d_val,
-                                        vol_size=vol_size
+                                        vol_size=vol_size,
+                                        exclude_sacrum=exclude_sacrum,
+                                        sacrum_only=sacrum_only
                                         )
 
         train_loader = DataLoader(train_dataset,
                                   batch_size=batch_size,
                                   shuffle=True,
-                                  drop_last=True,
                                   num_workers=num_workers,
                                   pin_memory=pin_memory,
+                                  drop_last=True,
                                   persistent_workers=num_workers > 0)
         val_loader = DataLoader(val_dataset,
                                 batch_size=batch_size,

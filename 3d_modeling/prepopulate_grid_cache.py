@@ -2,11 +2,14 @@ import math
 from tqdm import tqdm
 import argparse
 from multiprocessing import Process
+import matplotlib.pyplot as plt
 
 from rsna_dataloader import *
 
 DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
+
+viz = True
 
 df = TRAINING_DATA.dropna()
 # This drops any subjects with nans
@@ -29,7 +32,8 @@ bounding_boxes = pd.read_csv("./data/SpineNet/bounding_boxes_3d.csv")
 
 def worker_loop(dirslice):
     for dir in tqdm(dirslice):
-        study_id = dir.split("/")[-2]
+        # study_id = dir.split("/")[-2]
+        study_id = dir.split("/")[-1]
         study_bounds = bounding_boxes[bounding_boxes['study_id'] == int(study_id)].sort_values(by="level", ascending=True)
 
         # read_study_as_voxel_grid_v2(dir, series_descs)
@@ -44,7 +48,7 @@ def worker_loop(dirslice):
             min_bounds.append(np.array([row['x_min'], row['y_min'], row['z_min']]))
             max_bounds.append(np.array([row['x_max'], row['y_max'], row['z_max']]))
 
-        read_vertebral_levels_as_voxel_grids_alt(
+        grids = read_vertebral_levels_as_voxel_grids_alt(
             dir,
             vertebral_levels=levels,
             min_bounds=min_bounds,
@@ -52,6 +56,17 @@ def worker_loop(dirslice):
             series_type_dict=series_descs,
             voxel_size=(128, 128, 128))
 
+        if viz:
+            f, axs = plt.subplots(5, 3)
+
+            for level_idx, grid_key in enumerate(sorted(list(grids.keys()))):
+                grid = grids[grid_key]
+                axs[level_idx, 0].imshow(grid[0, 64], cmap="gray")
+                axs[level_idx, 1].imshow(grid[0, :, 64], cmap="gray")
+                axs[level_idx, 2].imshow(grid[1, :, :, 64], cmap="gray")
+
+            plt.title(study_id)
+            plt.show()
 
 if __name__ == "__main__":
     dirs = glob.glob("./data/rsna-2024-lumbar-spine-degenerative-classification/train_images/*/")

@@ -15,23 +15,23 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
+    # backbone="efficientnet_b5",
     backbone="coatnet_rmlp_3_rw",
-    # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
-    vol_size=(96, 96, 96),
+    vol_size=(128, 128, 128),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=15,
-    gradient_acc_steps=2,
+    gradient_acc_steps=4,
     drop_rate=0.3,
     drop_rate_last=0.,
-    drop_path_rate=0.3,
-    aug_prob=0.9,
+    drop_path_rate=0.1,
+    aug_prob=0.8,
     out_dim=3,
-    epochs=45,
+    epochs=75,
     tune_epochs=5,
-    batch_size=12,
+    batch_size=5,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -51,6 +51,8 @@ class CustomMaxxVit3dClassifier(nn.Module):
         self.out_classes = out_classes
 
         self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
+        # self.config.conv_cfg.downsample_pool_type = "max"
+        # self.config.conv_cfg.pool_type = "max"
 
         self.backbone = timm_3d.models.MaxxVit(
             img_size=CONFIG["vol_size"],
@@ -234,7 +236,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                                                    split_k=CONFIG["split_k"],
                                                                    batch_size=CONFIG["batch_size"],
                                                                    pin_memory=True,
-                                                                   use_mirroring_trick=True
+                                                                   use_mirroring_trick=True,
+                                                                   exclude_sacrum=True
                                                                    )
 
     schedulers = [
@@ -260,9 +263,11 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        # model = Classifier3dMultihead(backbone=backbone, in_chans=3).to(device)
+        if index == 0:
+            model.load_state_dict(torch.load("models/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0_pt6/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0_35.pt"))
         optimizers = [
-            # torch.optim.AdamW(model.parameters(), lr=3e-4),
-            torch.optim.Adam(model.parameters(), lr=1e-3),
+            torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
 
         trainloader, valloader, trainset, testset = fold
@@ -340,10 +345,10 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     }
 
     fold = dataset_folds[fold_index]
-    model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"]).to(device)
+    model = CustomMaxxVit3dClassifier(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"]).to(device)
     model.load_state_dict(torch.load(model_path))
     optimizers = [
-        torch.optim.SGD(model.parameters(), lr=1e-2),
+        torch.optim.Adam(model.parameters(), lr=1e-3),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -368,12 +373,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_modded_alt_{CONFIG['vol_size'][0]}_vertebrae")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_non_sacral")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_modded_alt_{CONFIG['vol_size'][0]}_vertebrae")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
-    #                               "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_32.pt",
+    #                               "models/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0/coatnet_rmlp_3_rw_modded_alt_128_vertebrae_fold_0_35.pt",
     #                               fold_index=0)
 
 if __name__ == '__main__':
