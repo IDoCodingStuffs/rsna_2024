@@ -32,7 +32,8 @@ class StudyPerVertebraLevelDataset(Dataset):
     def __init__(self, dataframe: pd.DataFrame, transform=None):
 
         self.df = dataframe
-        self.df["label_as_array"] = self.df["label"].apply(convert_to_array)
+        self.df["label_as_array"] = [e for e in self.df["label"].str.replace(" ", "").str.split(",") if e != ""]
+        print(self.df["label_as_array"].head())
         self.transform = transform
 
     def __len__(self):
