@@ -11,7 +11,7 @@ import pandas as pd
 
 from config import Config
 from loss import criterion
-from utils import transforms_train, transforms_valid
+from utils import transform_train, transform_val
 from dataset import StudyPerVertebraLevelDataset, get_folds
 from model import GradingModel
 
@@ -22,8 +22,8 @@ def train_func(model, loader_train, optimizer, scaler=None):
     bar = tqdm(loader_train)
     for images, targets in bar:
         optimizer.zero_grad()
-        images = images.cuda()
-        targets = targets.cuda()
+        images = images.to(Config.device)
+        targets = targets.to(Config.device)
 
         with amp.autocast():
             logits = model(images)
@@ -50,8 +50,9 @@ def valid_func(model, loader_valid):
             images = images.to(Config.device)
             targets = targets.to(Config.device)
 
-            logits = model(images)
-            loss = criterion(logits, targets)
+            with amp.autocast():
+                logits = model(images)
+                loss = criterion(logits, targets)
 
             gts.append(targets.cpu())
             outputs.append(logits.cpu())
@@ -81,8 +82,8 @@ def run(fold):
     _train = df[df['fold'] != fold].reset_index(drop=True)
     _valid = df[df['fold'] == fold].reset_index(drop=True)
 
-    dataset_train = StudyPerVertebraLevelDataset(_train, transform=transforms_train)
-    dataset_valid = StudyPerVertebraLevelDataset(_valid, transform=transforms_valid)
+    dataset_train = StudyPerVertebraLevelDataset(_train, transform=transform_train)
+    dataset_valid = StudyPerVertebraLevelDataset(_valid, transform=transform_val)
 
     loader_train = torch.utils.data.DataLoader(
         dataset_train, batch_size=Config.batch_size, shuffle=True, num_workers=Config.num_workers, drop_last=True)

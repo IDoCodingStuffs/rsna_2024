@@ -47,7 +47,7 @@ class StudyPerVertebraLevelDataset(Dataset):
         volume = torch.FloatTensor(volume)
         volume = self.transform(volume)
 
-        return volume.to(torch.half), torch.tensor(label, dtype=torch.long)
+        return volume, torch.tensor(label, dtype=torch.long)
     
     
 
