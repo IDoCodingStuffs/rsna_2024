@@ -136,9 +136,9 @@ class StudyPerVertebraLevelDataset(Dataset):
         self.subjects = self.dataframe[['study_id', 'level']].drop_duplicates().reset_index(drop=True)
 
         if exclude_sacrum:
-            self.subjects = self.subjects[self.subjects['level'] != "L5/S1"]
+            self.subjects = self.subjects[~self.subjects['level'].isin(("L5/S1", "L4/L5"))]
         elif sacrum_only:
-            self.subjects = self.subjects[self.subjects['level'] == "L5/S1"]
+            self.subjects = self.subjects[self.subjects['level'].isin(("L5/S1", "L4/L5"))]
         elif not sacrum_only:
             raise ValueError("Cannot exclude sacrum and not sacrum_only at the same time")
 

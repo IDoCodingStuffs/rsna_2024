@@ -29,7 +29,7 @@ CONFIG = dict(
     drop_path_rate=0.1,
     aug_prob=0.8,
     out_dim=3,
-    epochs=75,
+    epochs=45,
     tune_epochs=5,
     batch_size=5,
     split_rate=0.25,
@@ -393,14 +393,14 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_non_sacral", type="upper")
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_sacral", type="lower")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_lower", type="lower")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_upper", type="upper")
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_modded_alt_{CONFIG['vol_size'][0]}_vertebrae")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_sacral_tuned",
-                                  "models/coatnet_rmlp_3_rw_128_sacral_fold_0/coatnet_rmlp_3_rw_128_sacral_fold_0_38.pt",
-                                  fold_index=0)
+    # model = tune_stage_2_model_3d(CONFIG['backbone'],
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_sacral_tuned",
+    #                               "models/coatnet_rmlp_3_rw_128_sacral_fold_0/coatnet_rmlp_3_rw_128_sacral_fold_0_38.pt",
+    #                               fold_index=0)
 
 if __name__ == '__main__':
     train()
