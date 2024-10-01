@@ -22,8 +22,8 @@ def train_func(model, loader_train, optimizer, scaler=None):
     bar = tqdm(loader_train)
     for images, targets in bar:
         optimizer.zero_grad()
-        images = images.cuda()
-        targets = targets.cuda()
+        images = images.to(Config.device)
+        targets = targets.to(Config.device)
 
         with amp.autocast():
             logits = model(images)
@@ -50,8 +50,9 @@ def valid_func(model, loader_valid):
             images = images.to(Config.device)
             targets = targets.to(Config.device)
 
-            logits = model(images)
-            loss = criterion(logits, targets)
+            with amp.autocast():
+                logits = model(images)
+                loss = criterion(logits, targets)
 
             gts.append(targets.cpu())
             outputs.append(logits.cpu())

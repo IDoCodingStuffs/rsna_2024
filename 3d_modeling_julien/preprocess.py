@@ -74,7 +74,7 @@ if __name__ == "__main__":
     #     for study_id in train_df.study_id.unique()
     # ]
     # dirs = sorted(dirs)
-    #
+
     # slice_size = math.ceil(len(dirs) / Config.num_workers)
 
     # workers = []
@@ -83,28 +83,27 @@ if __name__ == "__main__":
     #     p = Process(target=worker_loop, args=(dirslice,))
     #     p.start()
     #     workers.append(p)
-    #
+
     # for p in workers:
     #     p.join()
 
     # Create the train dataframe with columns : study_id level path label
-    train_labels_df = pd.read_csv(Config.data_basepath + "train.csv")
+    train_labels_df = pd.read_csv(Config.data_basepath + "train.csv").replace(Config.LABEL_MAP)
 
     preprocessed_train = {
         "study_id": [],
         "level": [],
         "path": [],
-        "study_id": [],
-        "label": []
+        "label": [],
     }
     for index, row in bb_3d_df.iterrows():
         preprocessed_train["study_id"].append(row["study_id"])
-        preprocessed_train["level"].append(row["level"].lower())
+        preprocessed_train["level"].append(row["level"])
         preprocessed_train["path"].append(
             Config.data_basepath
-            + f"processed_studies/{bb_3d_df['study_id']}_{bb_3d_df['level']}_{Config.crop_shape[0]}_{Config.crop_shape[1]}_{Config.crop_shape[2]}.npy.gz"
+            + f"processed_studies/{row['study_id']}_{row['level'].lower()}_{Config.crop_shape[0]}_{Config.crop_shape[1]}_{Config.crop_shape[2]}.npy.gz"
         )
-        label = train_labels_df[train_labels_df["study_id"] == row["study_id"]][
+        label = train_labels_df[train_labels_df["study_id"] == row["study_id"]].values[0][
             1 + Config.LEVEL_MAP[row["level"].lower()] :: 5
         ]
         preprocessed_train["label"].append(label)
