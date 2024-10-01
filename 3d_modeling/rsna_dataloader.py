@@ -949,7 +949,7 @@ def read_vertebral_levels_as_voxel_grids_plane(dir_path,
                                          vertebral_levels: list[str],
                                          max_bounds: list[np.array],
                                          min_bounds: list[np.array],
-                                         center_point_pair: tuple,
+                                         center_point_pairs: list[tuple[np.array, np.array]],
                                          pcd_overall: o3d.geometry.PointCloud = None,
                                          series_type_dict=None,
                                          downsampling_factor=1,
@@ -981,16 +981,16 @@ def read_vertebral_levels_as_voxel_grids_plane(dir_path,
                                                 stack_slices_thickness=True,
                                                 resize_slices=False)
 
-            bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+            bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bounds[index], max_bound=max_bounds[index])
             pcd_level = pcd_overall.crop(bbox)
 
             pts = np.array(pcd_level.points)
             vals = np.array(pcd_level.colors)
 
-            dist_vec = center_point_pair[1] - center_point_pair[0]
+            dist_vec = center_point_pairs[index][1] - center_point_pairs[index][0]
 
-            plane_1 = np.sum((pts - center_point_pair[0]) * dist_vec, axis=-1)
-            plane_2 = np.sum((pts - center_point_pair[1]) * dist_vec, axis=-1)
+            plane_1 = np.sum((pts - center_point_pairs[index][0]) * dist_vec, axis=-1)
+            plane_2 = np.sum((pts - center_point_pairs[index][1]) * dist_vec, axis=-1)
 
             in_bounds = (plane_1 > 0) & (plane_2 < 0)
 
