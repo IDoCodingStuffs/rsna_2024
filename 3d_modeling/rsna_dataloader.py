@@ -41,6 +41,21 @@ LEVELS = ["l1_l2", "l2_l3", "l3_l4", "l4_l5", "l5_s1"]
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def rotation_matrix_from_vectors(vec1, vec2=np.array([0, 1, 0])):
+    """ Find the rotation matrix that aligns vec1 to vec2
+    :param vec1: A 3d "source" vector
+    :param vec2: A 3d "destination" vector
+    :return mat: A transform matrix (3x3) which when applied to vec1, aligns it with vec2.
+    """
+    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+    return rotation_matrix
+
+
 class StudyLevelDataset(Dataset):
     def __init__(self,
                  base_path: str,
@@ -176,7 +191,7 @@ class StudyPerVertebraLevelDataset(Dataset):
         center_1 = np.array(curr_centers.iloc[0][["x", "y", "z"]].values)
         center_2 = np.array(curr_centers.iloc[1][["x", "y", "z"]].values)
 
-        study_images = read_vertebral_level_as_voxel_grid_plane(study_path,
+        study_images = read_vertebral_level_as_voxel_grid_aligned(study_path,
                                                                 vertebral_level=level,
                                                                 center_point_pair=(center_1, center_2),
                                                                 min_bound=np.array(
@@ -847,6 +862,79 @@ def read_vertebral_level_as_voxel_grid_plane(dir_path,
     return grid
 
 
+def read_vertebral_level_as_voxel_grid_aligned(dir_path,
+                                             vertebral_level: str,
+                                             center_point_pair: tuple,
+                                             max_bound: np.array,
+                                             min_bound: np.array,
+                                             pcd_overall: o3d.geometry.PointCloud = None,
+                                             series_type_dict=None,
+                                             downsampling_factor=1,
+                                             voxel_size=(128, 128, 32),
+                                             caching=True,
+                                             ):
+    cache_path = os.path.join(dir_path,
+                              f"cached_grid_plane_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+    f = None
+    if caching and os.path.exists(cache_path):
+        try:
+            f = pgzip.PgzipFile(cache_path, "r")
+            ret = np.load(f, allow_pickle=True)
+            f.close()
+            return ret
+        except Exception as e:
+            print(cache_path, "\n", e)
+            if f:
+                f.close()
+            os.remove(cache_path)
+
+    resize = tio.Resize(voxel_size)
+
+    bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+    pcd_overall = pcd_overall.crop(bbox)
+
+    pts = np.array(pcd_overall.points)
+    vals = np.array(pcd_overall.colors)
+
+    dist_vec = center_point_pair[1] - center_point_pair[0]
+
+    plane_1 = np.sum((pts - center_point_pair[0]) * dist_vec, axis=-1)
+    plane_2 = np.sum((pts - center_point_pair[1]) * dist_vec, axis=-1)
+
+    in_bounds = (plane_1 > 0) & (plane_2 < 0)
+
+    pts_level = pts[in_bounds]
+    vals_level = vals[in_bounds]
+
+    pcd_level = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts_level))
+    pcd_level = pcd_level.rotate(rotation_matrix_from_vectors(dist_vec))
+
+    pcd_level.colors = o3d.utility.Vector3dVector(vals_level)
+
+    size = 1
+    voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
+                                                                   color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
+
+    coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
+    vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
+
+    size = np.max(coords, axis=0) + 1
+    grid = np.zeros((3, size[0], size[1], size[2]), dtype=np.float32)
+    indices = coords[:, 0], coords[:, 1], coords[:, 2]
+
+    for i in range(3):
+        grid[i][indices] = vals[:, i]
+
+    grid = resize(grid)
+
+    if caching:
+        f = pgzip.PgzipFile(cache_path, "w")
+        np.save(f, grid)
+        f.close()
+
+    return grid
+
+
 def read_vertebral_levels_as_voxel_grids(dir_path,
                                          vertebral_levels: list[str],
                                          max_bounds: list[np.array],
@@ -1052,21 +1140,6 @@ def read_vertebral_levels_as_voxel_grids_plane(dir_path,
             ret[vertebral_level] = grid
 
     return ret
-
-
-def rotation_matrix_from_vectors(vec1, vec2=np.array([0, 1, 0])):
-    """ Find the rotation matrix that aligns vec1 to vec2
-    :param vec1: A 3d "source" vector
-    :param vec2: A 3d "destination" vector
-    :return mat: A transform matrix (3x3) which when applied to vec1, aligns it with vec2.
-    """
-    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
-    v = np.cross(a, b)
-    c = np.dot(a, b)
-    s = np.linalg.norm(v)
-    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
-    return rotation_matrix
 
 
 def read_vertebral_levels_as_voxel_grids_aligned(dir_path,
