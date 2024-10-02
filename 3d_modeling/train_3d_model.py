@@ -18,12 +18,12 @@ CONFIG = dict(
     backbone="coatnet_rmlp_3_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
-    vol_size=(96, 96, 96),
+    vol_size=(128, 128, 128),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=15,
-    gradient_acc_steps=2,
+    gradient_acc_steps=4,
     drop_rate=0.3,
     drop_rate_last=0.,
     drop_path_rate=0.3,
@@ -31,7 +31,7 @@ CONFIG = dict(
     out_dim=3,
     epochs=45,
     tune_epochs=5,
-    batch_size=12,
+    batch_size=5,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -207,6 +207,7 @@ def train_model_3d(backbone, model_label: str):
 
 def train_stage_2_model_3d(backbone, model_label: str):
     bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
+    coords_dataframe = pd.read_csv(os.path.join("data/SpineNet/coords_3d.csv"))
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
@@ -224,6 +225,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     train_data = TRAINING_DATA[TRAINING_DATA["study_id"].isin(bounds_dataframe["study_id"])]
     dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
                                                                       boundaries_df=bounds_dataframe,
+                                                                      coords_df=coords_dataframe,
                                                                    transform_3d_train=transform_3d_train,
                                                                    transform_3d_val=transform_3d_val,
                                                                    base_path=os.path.join(
@@ -261,8 +263,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
-            # torch.optim.AdamW(model.parameters(), lr=3e-4),
-            torch.optim.Adam(model.parameters(), lr=1e-3),
+            torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
 
         trainloader, valloader, trainset, testset = fold

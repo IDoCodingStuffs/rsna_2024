@@ -372,6 +372,7 @@ def create_study_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
 
 def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
                                                       boundaries_df: pd.DataFrame,
+                                                      coords_df: pd.DataFrame,
                                                       base_path: str,
                                                       transform_3d_train=None,
                                                       transform_3d_val=None,
@@ -412,13 +413,13 @@ def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
         train_df = train_df.reset_index(drop=True)
         val_df = val_df.reset_index(drop=True)
 
-        train_dataset = StudyPerVertebraLevelDataset(base_path, train_df, boundaries_df,
+        train_dataset = StudyPerVertebraLevelDataset(base_path, train_df, boundaries_df, coords_df,
                                                      transform_3d=transform_3d_train,
                                                      is_train=True,
                                                      use_mirror_trick=use_mirroring_trick,
                                                      vol_size=vol_size
                                                      )
-        val_dataset = StudyPerVertebraLevelDataset(base_path, val_df, boundaries_df,
+        val_dataset = StudyPerVertebraLevelDataset(base_path, val_df, boundaries_df, coords_df,
                                                    transform_3d=transform_3d_val,
                                                    vol_size=vol_size
                                                    )
@@ -796,7 +797,7 @@ def read_vertebral_level_as_voxel_grid_plane(dir_path,
             f.close()
             return ret
         except Exception as e:
-            print(dir_path, "\n", e)
+            print(cache_path, "\n", e)
             if f:
                 f.close()
             os.remove(cache_path)
