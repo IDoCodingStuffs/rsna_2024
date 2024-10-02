@@ -55,7 +55,7 @@ def worker_loop(dirslice):
                 )
             )
 
-        read_vertebral_levels_as_voxel_grids_plane(
+        read_vertebral_levels_as_voxel_grids_aligned(
             dir,
             vertebral_levels=levels,
             min_bounds=min_bounds,
