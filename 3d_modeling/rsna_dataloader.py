@@ -35,6 +35,9 @@ MAX_IMAGES_IN_SERIES = {
     "Sagittal T1": 38,
 }
 
+CENTERS = ["L1", "L2", "L3", "L4", "L5", "S1"]
+LEVELS = ["l1_l2", "l2_l3", "l3_l4", "l4_l5", "l5_s1"]
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -119,6 +122,7 @@ class StudyPerVertebraLevelDataset(Dataset):
                  base_path: str,
                  dataframe: pd.DataFrame,
                  bounds_dataframe: pd.DataFrame,
+                 coords_dataframe: pd.DataFrame,
                  transform_3d=None,
                  is_train=False,
                  vol_size=(192, 192, 192),
@@ -129,7 +133,9 @@ class StudyPerVertebraLevelDataset(Dataset):
 
         self.dataframe = (dataframe[['study_id', "series_id", "series_description", "condition", "severity", "level"]]
                           .drop_duplicates())
+
         self.bounds_dataframe = bounds_dataframe
+        self.coords_dataframe = coords_dataframe
 
         self.subjects = self.dataframe[['study_id', 'level']].drop_duplicates().reset_index(drop=True)
         self.series = self.dataframe[["study_id", "series_id"]].drop_duplicates().groupby("study_id")[
@@ -154,16 +160,34 @@ class StudyPerVertebraLevelDataset(Dataset):
         study_path = os.path.join(self.base_path, str(curr["study_id"]))
 
         level = curr["level"].replace("/", "_").lower()
+        level_idx = LEVELS.index(level)
+
         curr_bounds = self.bounds_dataframe[
             (self.bounds_dataframe["study_id"] == curr["study_id"]) & (self.bounds_dataframe["level"] == curr["level"])
-        ]
-        study_images = read_vertebral_level_as_voxel_grid_alt(study_path,
-                                                          vertebral_level=level,
-                                                          min_bound=np.array([curr_bounds['x_min'], curr_bounds['y_min'], curr_bounds['z_min']]),
-                                                          max_bound=np.array([curr_bounds['x_max'], curr_bounds['y_max'], curr_bounds['z_max']]),
-                                                          series_type_dict=self.series_descs,
-                                                          voxel_size=self.vol_size
-                                                          )
+            ]
+        curr_centers = self.coords_dataframe[
+            (self.coords_dataframe["study_id"] == curr["study_id"]) &
+            (self.coords_dataframe["level"].isin((CENTERS[level_idx], CENTERS[level_idx + 1])))
+            ].sort_values(by=["level"])
+
+        if len(curr_centers) != 2:
+            raise ValueError("Malformed centers")
+
+        center_1 = np.array(curr_centers.iloc[0][["x", "y", "z"]].values)
+        center_2 = np.array(curr_centers.iloc[1][["x", "y", "z"]].values)
+
+        study_images = read_vertebral_level_as_voxel_grid_plane(study_path,
+                                                                vertebral_level=level,
+                                                                center_point_pair=(center_1, center_2),
+                                                                min_bound=np.array(
+                                                                    [curr_bounds['x_min'], curr_bounds['y_min'],
+                                                                     curr_bounds['z_min']]),
+                                                                max_bound=np.array(
+                                                                    [curr_bounds['x_max'], curr_bounds['y_max'],
+                                                                     curr_bounds['z_max']]),
+                                                                series_type_dict=self.series_descs,
+                                                                voxel_size=self.vol_size
+                                                                )
 
         if is_mirror:
             temp = label[:2].copy()
@@ -348,16 +372,17 @@ def create_study_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
 
 def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
                                                       boundaries_df: pd.DataFrame,
-                                                   base_path: str,
-                                                   transform_3d_train=None,
-                                                   transform_3d_val=None,
-                                                   vol_size=None,
-                                                   split_k=4,
-                                                   random_seed=42,
-                                                   batch_size=1,
-                                                   num_workers=0,
-                                                   pin_memory=True,
-                                                   use_mirroring_trick=True):
+                                                      coords_df: pd.DataFrame,
+                                                      base_path: str,
+                                                      transform_3d_train=None,
+                                                      transform_3d_val=None,
+                                                      vol_size=None,
+                                                      split_k=4,
+                                                      random_seed=42,
+                                                      batch_size=1,
+                                                      num_workers=0,
+                                                      pin_memory=True,
+                                                      use_mirroring_trick=True):
     df = df.dropna()
     # This drops any subjects with nans
 
@@ -388,16 +413,16 @@ def create_vertebra_level_datasets_and_loaders_k_fold(df: pd.DataFrame,
         train_df = train_df.reset_index(drop=True)
         val_df = val_df.reset_index(drop=True)
 
-        train_dataset = StudyPerVertebraLevelDataset(base_path, train_df, boundaries_df,
-                                          transform_3d=transform_3d_train,
-                                          is_train=True,
-                                          use_mirror_trick=use_mirroring_trick,
-                                          vol_size=vol_size
-                                          )
-        val_dataset = StudyPerVertebraLevelDataset(base_path, val_df, boundaries_df,
-                                        transform_3d=transform_3d_val,
-                                        vol_size=vol_size
-                                        )
+        train_dataset = StudyPerVertebraLevelDataset(base_path, train_df, boundaries_df, coords_df,
+                                                     transform_3d=transform_3d_train,
+                                                     is_train=True,
+                                                     use_mirror_trick=use_mirroring_trick,
+                                                     vol_size=vol_size
+                                                     )
+        val_dataset = StudyPerVertebraLevelDataset(base_path, val_df, boundaries_df, coords_df,
+                                                   transform_3d=transform_3d_val,
+                                                   vol_size=vol_size
+                                                   )
 
         train_loader = DataLoader(train_dataset,
                                   batch_size=batch_size,
@@ -638,7 +663,8 @@ def read_vertebral_level_as_voxel_grid(dir_path,
                                        voxel_size=(128, 128, 32),
                                        caching=True,
                                        ):
-    cache_path = os.path.join(dir_path, f"cached_grid_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+    cache_path = os.path.join(dir_path,
+                              f"cached_grid_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
     if caching and os.path.exists(cache_path):
         try:
@@ -689,15 +715,15 @@ def read_vertebral_level_as_voxel_grid(dir_path,
 
 
 def read_vertebral_level_as_voxel_grid_alt(dir_path,
-                                       vertebral_level: str,
-                                       max_bound: np.array,
-                                       min_bound: np.array,
-                                       pcd_overall: o3d.geometry.PointCloud = None,
-                                       series_type_dict=None,
-                                       downsampling_factor=1,
-                                       voxel_size=(128, 128, 32),
-                                       caching=True,
-                                       ):
+                                           vertebral_level: str,
+                                           max_bound: np.array,
+                                           min_bound: np.array,
+                                           pcd_overall: o3d.geometry.PointCloud = None,
+                                           series_type_dict=None,
+                                           downsampling_factor=1,
+                                           voxel_size=(128, 128, 32),
+                                           caching=True,
+                                           ):
     cache_path = os.path.join(dir_path,
                               f"cached_grid_alt_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
@@ -730,6 +756,76 @@ def read_vertebral_level_as_voxel_grid_alt(dir_path,
     voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
                                                                    color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
+    coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
+    vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
+
+    size = np.max(coords, axis=0) + 1
+    grid = np.zeros((3, size[0], size[1], size[2]), dtype=np.float32)
+    indices = coords[:, 0], coords[:, 1], coords[:, 2]
+
+    for i in range(3):
+        grid[i][indices] = vals[:, i]
+
+    grid = resize(grid)
+
+    if caching:
+        f = pgzip.PgzipFile(cache_path, "w")
+        np.save(f, grid)
+        f.close()
+
+    return grid
+
+
+def read_vertebral_level_as_voxel_grid_plane(dir_path,
+                                             vertebral_level: str,
+                                             center_point_pair: tuple,
+                                             max_bound: np.array,
+                                             min_bound: np.array,
+                                             pcd_overall: o3d.geometry.PointCloud = None,
+                                             series_type_dict=None,
+                                             downsampling_factor=1,
+                                             voxel_size=(128, 128, 32),
+                                             caching=True,
+                                             ):
+    cache_path = os.path.join(dir_path,
+                              f"cached_grid_plane_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+    f = None
+    if caching and os.path.exists(cache_path):
+        try:
+            f = pgzip.PgzipFile(cache_path, "r")
+            ret = np.load(f, allow_pickle=True)
+            f.close()
+            return ret
+        except Exception as e:
+            print(cache_path, "\n", e)
+            if f:
+                f.close()
+            os.remove(cache_path)
+
+    resize = tio.Resize(voxel_size)
+
+    bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+    pcd_overall = pcd_overall.crop(bbox)
+
+    pts = np.array(pcd_overall.points)
+    vals = np.array(pcd_overall.colors)
+
+    dist_vec = center_point_pair[1] - center_point_pair[0]
+
+    plane_1 = np.sum((pts - center_point_pair[0]) * dist_vec, axis=-1)
+    plane_2 = np.sum((pts - center_point_pair[1]) * dist_vec, axis=-1)
+
+    in_bounds = (plane_1 > 0) & (plane_2 < 0)
+
+    pts_level = pts[in_bounds]
+    vals_level = vals[in_bounds]
+
+    pcd_level = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts_level))
+    pcd_level.colors = o3d.utility.Vector3dVector(vals_level)
+
+    size = 1
+    voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
+                                                                   color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
     coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
     vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
@@ -750,6 +846,7 @@ def read_vertebral_level_as_voxel_grid_alt(dir_path,
 
     return grid
 
+
 def read_vertebral_levels_as_voxel_grids(dir_path,
                                          vertebral_levels: list[str],
                                          max_bounds: list[np.array],
@@ -761,7 +858,8 @@ def read_vertebral_levels_as_voxel_grids(dir_path,
     ret = {}
 
     for index, vertebral_level in enumerate(vertebral_levels):
-        cache_path = os.path.join(dir_path, f"cached_grid_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+        cache_path = os.path.join(dir_path,
+                                  f"cached_grid_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
         f = None
         if os.path.exists(cache_path):
             try:
@@ -812,19 +910,20 @@ def read_vertebral_levels_as_voxel_grids(dir_path,
 
 
 def read_vertebral_levels_as_voxel_grids_alt(dir_path,
-                                         vertebral_levels: list[str],
-                                         max_bounds: list[np.array],
-                                         min_bounds: list[np.array],
-                                         pcd_overall: o3d.geometry.PointCloud = None,
-                                         series_type_dict=None,
-                                         downsampling_factor=1,
-                                         voxel_size=(128, 128, 42)):
+                                             vertebral_levels: list[str],
+                                             max_bounds: list[np.array],
+                                             min_bounds: list[np.array],
+                                             pcd_overall: o3d.geometry.PointCloud = None,
+                                             series_type_dict=None,
+                                             downsampling_factor=1,
+                                             voxel_size=(128, 128, 42)):
     ret = {}
 
     resize = tio.Resize(voxel_size)
 
     for index, vertebral_level in enumerate(vertebral_levels):
-        cache_path = os.path.join(dir_path, f"cached_grid_alt_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+        cache_path = os.path.join(dir_path,
+                                  f"cached_grid_alt_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
         f = None
         if os.path.exists(cache_path):
             try:
@@ -848,6 +947,87 @@ def read_vertebral_levels_as_voxel_grids_alt(dir_path,
 
             bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bounds[index], max_bound=max_bounds[index])
             pcd_level = pcd_overall.crop(bbox)
+
+            size = 1
+            voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
+                                                                           color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
+
+            coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
+            vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
+
+            size = np.max(coords, axis=0) + 1
+            grid = np.zeros((3, size[0], size[1], size[2]), dtype=np.float32)
+            indices = coords[:, 0], coords[:, 1], coords[:, 2]
+
+            for i in range(3):
+                grid[i][indices] = vals[:, i]
+
+            grid = resize(grid)
+
+            f = pgzip.PgzipFile(cache_path, "w")
+            np.save(f, grid)
+            f.close()
+
+            ret[vertebral_level] = grid
+
+    return ret
+
+
+def read_vertebral_levels_as_voxel_grids_plane(dir_path,
+                                               vertebral_levels: list[str],
+                                               max_bounds: list[np.array],
+                                               min_bounds: list[np.array],
+                                               center_point_pairs: list[tuple[np.array, np.array]],
+                                               pcd_overall: o3d.geometry.PointCloud = None,
+                                               series_type_dict=None,
+                                               downsampling_factor=1,
+                                               voxel_size=(128, 128, 42)):
+    ret = {}
+
+    resize = tio.Resize(voxel_size)
+
+    for index, vertebral_level in enumerate(vertebral_levels):
+        cache_path = os.path.join(dir_path,
+                                  f"cached_grid_plane_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+        f = None
+        if os.path.exists(cache_path):
+            try:
+                f = pgzip.PgzipFile(cache_path, "r")
+                ret[vertebral_level] = np.load(f, allow_pickle=True)
+                f.close()
+            except Exception as e:
+                print(dir_path, "\n", e)
+                if f:
+                    f.close()
+                os.remove(cache_path)
+
+        else:
+            if pcd_overall is None:
+                pcd_overall = read_study_as_pcd(dir_path,
+                                                series_types_dict=series_type_dict,
+                                                downsampling_factor=downsampling_factor,
+                                                img_size=(voxel_size[0], voxel_size[2]),
+                                                stack_slices_thickness=True,
+                                                resize_slices=False)
+
+            bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bounds[index], max_bound=max_bounds[index])
+            pcd_level = pcd_overall.crop(bbox)
+
+            pts = np.array(pcd_level.points)
+            vals = np.array(pcd_level.colors)
+
+            dist_vec = center_point_pairs[index][1] - center_point_pairs[index][0]
+
+            plane_1 = np.sum((pts - center_point_pairs[index][0]) * dist_vec, axis=-1)
+            plane_2 = np.sum((pts - center_point_pairs[index][1]) * dist_vec, axis=-1)
+
+            in_bounds = (plane_1 > 0) & (plane_2 < 0)
+
+            pts_level = pts[in_bounds]
+            vals_level = vals[in_bounds]
+
+            pcd_level = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts_level))
+            pcd_level.colors = o3d.utility.Vector3dVector(vals_level)
 
             size = 1
             voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
