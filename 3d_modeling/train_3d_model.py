@@ -369,7 +369,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 def train():
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_modded_alt_{CONFIG['vol_size'][0]}_vertebrae")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
