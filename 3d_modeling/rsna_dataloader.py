@@ -41,7 +41,7 @@ LEVELS = ["l1_l2", "l2_l3", "l3_l4", "l4_l5", "l5_s1"]
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def rotation_matrix_from_vectors(vec1, vec2=np.array([0, 1, 0])):
+def rotation_matrix_from_vectors(vec1, vec2=np.array([0, 0, -1])):
     """ Find the rotation matrix that aligns vec1 to vec2
     :param vec1: A 3d "source" vector
     :param vec2: A 3d "destination" vector
