@@ -874,7 +874,7 @@ def read_vertebral_level_as_voxel_grid_aligned(dir_path,
                                              caching=True,
                                              ):
     cache_path = os.path.join(dir_path,
-                              f"cached_grid_plane_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+                              f"cached_grid_aligned_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
     if caching and os.path.exists(cache_path):
         try:
