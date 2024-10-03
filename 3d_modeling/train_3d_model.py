@@ -50,7 +50,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
                  use_combo_layer=False):
         super(CustomMaxxVit3dClassifier, self).__init__()
         self.out_classes = out_classes
-        self.use_combo_layer = combo_layer
+        self.use_combo_layer = use_combo_layer
 
         self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
 
@@ -276,7 +276,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        model = CustomMaxxVit3dClassifier(backbone=backbone, use_combo_layer=True).to(device)
         optimizers = [
             torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
