@@ -148,8 +148,8 @@ def train_model_3d(backbone, model_label: str):
                                                                    transform_3d_train=transform_3d_train,
                                                                    transform_3d_val=transform_3d_val,
                                                                    base_path=os.path.join(
-                                                                    DATA_BASEPATH,
-                                                                    "train_images"),
+                                                                       DATA_BASEPATH,
+                                                                       "train_images"),
                                                                    vol_size=CONFIG["vol_size"],
                                                                    num_workers=CONFIG["num_workers"],
                                                                    split_k=CONFIG["split_k"],
@@ -211,7 +211,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, degrees=45, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
+        tio.RandomAffine(translation=10, degrees=45, image_interpolation=CONFIG["image_interpolation"],
+                         p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
@@ -226,18 +227,18 @@ def train_stage_2_model_3d(backbone, model_label: str):
     dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
                                                                       boundaries_df=bounds_dataframe,
                                                                       coords_df=coords_dataframe,
-                                                                   transform_3d_train=transform_3d_train,
-                                                                   transform_3d_val=transform_3d_val,
-                                                                   base_path=os.path.join(
-                                                                    DATA_BASEPATH,
-                                                                    "train_images"),
-                                                                   vol_size=CONFIG["vol_size"],
-                                                                   num_workers=CONFIG["num_workers"],
-                                                                   split_k=CONFIG["split_k"],
-                                                                   batch_size=CONFIG["batch_size"],
-                                                                   pin_memory=True,
-                                                                   use_mirroring_trick=True
-                                                                   )
+                                                                      transform_3d_train=transform_3d_train,
+                                                                      transform_3d_val=transform_3d_val,
+                                                                      base_path=os.path.join(
+                                                                          DATA_BASEPATH,
+                                                                          "train_images"),
+                                                                      vol_size=CONFIG["vol_size"],
+                                                                      num_workers=CONFIG["num_workers"],
+                                                                      split_k=CONFIG["split_k"],
+                                                                      batch_size=CONFIG["batch_size"],
+                                                                      pin_memory=True,
+                                                                      use_mirroring_trick=True
+                                                                      )
 
     schedulers = [
 
@@ -262,6 +263,9 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        if index == 0:
+            model.load_state_dict(
+                torch.load("models/coatnet_rmlp_3_rw_128_fold_0_pt1/coatnet_rmlp_3_rw_128_fold_0_20.pt"))
         optimizers = [
             torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
@@ -289,36 +293,38 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
 def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_index: int):
     bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
+    coords_dataframe = pd.read_csv(os.path.join("data/SpineNet/coords_3d.csv"))
 
     transform_3d_train = tio.Compose([
-        tio.CropOrPad(target_shape=CONFIG["vol_size"]),
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
+        tio.RandomAffine(translation=10, degrees=45, image_interpolation=CONFIG["image_interpolation"],
+                         p=CONFIG["aug_prob"]),
+        # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
     transform_3d_val = tio.Compose([
-        tio.CropOrPad(target_shape=CONFIG["vol_size"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
     train_data = TRAINING_DATA[TRAINING_DATA["study_id"].isin(bounds_dataframe["study_id"])]
     dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
                                                                       boundaries_df=bounds_dataframe,
-                                                                   transform_3d_train=transform_3d_train,
-                                                                   transform_3d_val=transform_3d_val,
-                                                                   base_path=os.path.join(
-                                                                    DATA_BASEPATH,
-                                                                    "train_images"),
-                                                                   vol_size=CONFIG["vol_size"],
-                                                                   num_workers=CONFIG["num_workers"],
-                                                                   split_k=CONFIG["split_k"],
-                                                                   batch_size=CONFIG["batch_size"],
-                                                                   pin_memory=True,
-                                                                   use_mirroring_trick=True
-                                                                   )
+                                                                      coords_df=coords_dataframe,
+                                                                      transform_3d_train=transform_3d_train,
+                                                                      transform_3d_val=transform_3d_val,
+                                                                      base_path=os.path.join(
+                                                                          DATA_BASEPATH,
+                                                                          "train_images"),
+                                                                      vol_size=CONFIG["vol_size"],
+                                                                      num_workers=CONFIG["num_workers"],
+                                                                      split_k=CONFIG["split_k"],
+                                                                      batch_size=CONFIG["batch_size"],
+                                                                      pin_memory=True,
+                                                                      use_mirroring_trick=True
+                                                                      )
 
     schedulers = [
     ]
@@ -341,7 +347,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     }
 
     fold = dataset_folds[fold_index]
-    model = Classifier3dMultihead(backbone=backbone, in_chans=3, out_classes=CONFIG["num_conditions"]).to(device)
+    model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
     model.load_state_dict(torch.load(model_path))
     optimizers = [
         torch.optim.SGD(model.parameters(), lr=1e-2),
@@ -373,9 +379,10 @@ def train():
     model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae_tuned",
-    #                               "models/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0/coatnet_rmlp_3_rw_224_128_vertebrae_fold_0_32.pt",
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_27_nonaligned",
+    #                               "models/coatnet_rmlp_3_rw_128_fold_0/coatnet_rmlp_3_rw_128_fold_0_7.pt",
     #                               fold_index=0)
+
 
 if __name__ == '__main__':
     train()
