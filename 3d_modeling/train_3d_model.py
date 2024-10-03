@@ -46,9 +46,11 @@ class CustomMaxxVit3dClassifier(nn.Module):
                  backbone,
                  in_chans=3,
                  out_classes=5,
-                 cutpoint_margin=0):
+                 cutpoint_margin=0,
+                 use_combo_layer=False):
         super(CustomMaxxVit3dClassifier, self).__init__()
         self.out_classes = out_classes
+        self.use_combo_layer = combo_layer
 
         self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
 
@@ -62,11 +64,20 @@ class CustomMaxxVit3dClassifier(nn.Module):
         )
         self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
         head_in_dim = self.backbone.head.fc.in_features
+        if not use_combo_layer:
+            head_in_dim += 5
         self.backbone.head.fc = nn.Identity()
+
+        self.combo_layer = nn.Sequential(
+            nn.Linear(head_in_dim + 5, head_in_dim),
+            nn.GELU(),
+            nn.BatchNorm1d(num_features=head_in_dim),
+            nn.Dropout(p=CONFIG["drop_rate_last"]),
+        )
 
         self.heads = nn.ModuleList(
             [nn.Sequential(
-                nn.Linear(head_in_dim + 5, 1),
+                nn.Linear(head_in_dim, 1),
                 LogisticCumulativeLink(CONFIG["out_dim"])
             ) for i in range(out_classes)]
         )
@@ -76,6 +87,8 @@ class CustomMaxxVit3dClassifier(nn.Module):
     def forward(self, x, level):
         feat = self.backbone(x)
         feat = torch.concat([feat, level], dim=1)
+        if self.use_combo_layer:
+            feat = self.combo_layer(feat)
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
 
     def _ascension_callback(self):
