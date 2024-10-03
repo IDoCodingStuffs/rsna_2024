@@ -22,7 +22,7 @@ CONFIG = dict(
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=15,
+    num_workers=0,
     gradient_acc_steps=4,
     drop_rate=0.3,
     drop_rate_last=0.,
@@ -66,7 +66,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
 
         self.heads = nn.ModuleList(
             [nn.Sequential(
-                nn.Linear(head_in_dim, 1),
+                nn.Linear(head_in_dim + 5, 1),
                 LogisticCumulativeLink(CONFIG["out_dim"])
             ) for i in range(out_classes)]
         )
