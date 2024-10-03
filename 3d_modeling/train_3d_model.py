@@ -69,9 +69,8 @@ class CustomMaxxVit3dClassifier(nn.Module):
         self.backbone.head.fc = nn.Identity()
 
         self.combo_layer = nn.Sequential(
+            nn.ReLU(),
             nn.Linear(head_in_dim + 5, head_in_dim),
-            nn.GELU(),
-            nn.BatchNorm1d(num_features=head_in_dim),
             nn.Dropout(p=CONFIG["drop_rate_last"]),
         )
 
