@@ -264,7 +264,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-3),
+            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
 
         trainloader, valloader, trainset, testset = fold
