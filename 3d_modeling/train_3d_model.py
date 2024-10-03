@@ -263,9 +263,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
-        if index == 0:
-            model.load_state_dict(
-                torch.load("models/coatnet_rmlp_3_rw_128_fold_0_pt1/coatnet_rmlp_3_rw_128_fold_0_20.pt"))
         optimizers = [
             torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
