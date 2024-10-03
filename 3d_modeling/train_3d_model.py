@@ -297,7 +297,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=10, degrees=45, image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
@@ -350,7 +350,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
     model.load_state_dict(torch.load(model_path))
     optimizers = [
-        torch.optim.SGD(model.parameters(), lr=1e-2),
+        torch.optim.Adam(model.parameters(), lr=1e-3),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -380,7 +380,7 @@ def train():
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_27_nonaligned",
-    #                               "models/coatnet_rmlp_3_rw_128_fold_0/coatnet_rmlp_3_rw_128_fold_0_7.pt",
+    #                               "models/coatnet_rmlp_3_rw_128_nonaligned_fold_0_pt2/coatnet_rmlp_3_rw_128_fold_0_7.pt",
     #                               fold_index=0)
 
 
