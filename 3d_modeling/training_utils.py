@@ -34,11 +34,11 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
     with torch.no_grad():
         model.eval()
 
-        for images, label in tqdm(val_loader, desc=f"Validating epoch {epoch}"):
+        for images, level, label in tqdm(val_loader, desc=f"Validating epoch {epoch}"):
             label = label.to(device).unsqueeze(-1)
 
             with autocast("cuda", dtype=torch.bfloat16):
-                output = model(images.to(device))
+                output = model(images.to(device), level.to(device))
 
             for index, loss_fn in enumerate(loss_fns["train"]):
                 if len(loss_fns["train"]) > 1:
@@ -168,11 +168,11 @@ def train_model_with_validation(model,
             unfreeze_model_backbone(model)
 
         for index, val in enumerate(tqdm(train_loader, desc=f"Epoch {epoch}")):
-            images, label = val
+            images, level, label = val
             label = label.to(device).unsqueeze(-1)
 
             with autocast("cuda", dtype=torch.bfloat16):
-                output = model(images.to(device))
+                output = model(images.to(device), level.to(device))
 
                 del images
 

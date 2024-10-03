@@ -218,7 +218,10 @@ class StudyPerVertebraLevelDataset(Dataset):
             study_images = self.transform_3d(study_images)  # .data
             return study_images.to(torch.half), torch.tensor(label, dtype=torch.long)
 
-        return torch.HalfTensor(study_images.copy()), torch.tensor(label, dtype=torch.long)
+        return (torch.HalfTensor(study_images.copy()),
+                torch.HalfTensor([0 if i == LEVELS.index(level) else 1 for i in range(len(LEVELS))]),
+                torch.tensor(label, dtype=torch.long),
+                )
 
     def _get_labels(self):
         labels = dict()

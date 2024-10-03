@@ -73,8 +73,9 @@ class CustomMaxxVit3dClassifier(nn.Module):
 
         self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
 
-    def forward(self, x):
+    def forward(self, x, level):
         feat = self.backbone(x)
+        feat = torch.concat([feat, level], dim=1)
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
 
     def _ascension_callback(self):
