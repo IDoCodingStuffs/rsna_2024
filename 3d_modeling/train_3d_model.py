@@ -72,6 +72,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
             nn.ReLU(),
             nn.Linear(head_in_dim + 5, head_in_dim),
             nn.Dropout(p=CONFIG["drop_rate_last"]),
+            nn.ReLU(),
         )
 
         self.heads = nn.ModuleList(
