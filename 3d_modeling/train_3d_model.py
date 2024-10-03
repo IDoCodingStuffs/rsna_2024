@@ -14,7 +14,7 @@ CONFIG = dict(
     n_levels=5,
     num_classes=25,
     num_conditions=5,
-    image_interpolation="bspline",
+    image_interpolation="linear",
     backbone="coatnet_rmlp_3_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
@@ -211,7 +211,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, degrees=45, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
@@ -297,7 +297,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, degrees=45, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
