@@ -211,7 +211,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=10, isotropic=True, image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
@@ -264,7 +264,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
+            torch.optim.Adam(model.parameters(), lr=1e-4),
         ]
 
         trainloader, valloader, trainset, testset = fold
@@ -294,7 +294,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=10, isotropic=True, image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
