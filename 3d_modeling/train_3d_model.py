@@ -29,7 +29,7 @@ CONFIG = dict(
     drop_path_rate=0.3,
     aug_prob=0.9,
     out_dim=3,
-    epochs=75,
+    epochs=45,
     tune_epochs=5,
     batch_size=5,
     split_rate=0.25,
@@ -262,9 +262,11 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
+        if index == 0:
+            continue
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
-            torch.optim.Adam(model.parameters(), lr=1e-4),
+            torch.optim.RAdam(model.parameters(), lr=3e-4, weight_decay=1e-2, decoupled_weight_decay=True),
         ]
 
         trainloader, valloader, trainset, testset = fold
@@ -347,7 +349,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
     model.load_state_dict(torch.load(model_path))
     optimizers = [
-        torch.optim.Adam(model.parameters(), lr=1e-3),
+        torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -373,12 +375,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 def train():
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_27_nonaligned",
-    #                               "models/coatnet_rmlp_3_rw_128_nonaligned_fold_0_pt2/coatnet_rmlp_3_rw_128_fold_0_7.pt",
-    #                               fold_index=0)
+    model = tune_stage_2_model_3d(CONFIG['backbone'],
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_37_aligned",
+                                  "models/coatnet_rmlp_3_rw_128_fold_0_pt4/coatnet_rmlp_3_rw_128_fold_0_10.pt",
+                                  fold_index=0)
 
 
 if __name__ == '__main__':
