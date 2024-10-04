@@ -215,7 +215,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
+        tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -300,7 +300,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
+        tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
