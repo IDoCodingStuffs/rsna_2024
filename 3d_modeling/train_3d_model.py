@@ -15,7 +15,7 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    backbone="coatnet_rmlp_3_rw",
+    backbone="coatnet_4",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(128, 128, 128),
@@ -215,7 +215,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
+        # tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -300,7 +300,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                          p=CONFIG["aug_prob"]),
         # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
+        # tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -375,12 +375,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 def train():
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_37_aligned",
-                                  "models/coatnet_rmlp_3_rw_128_fold_0_pt4/coatnet_rmlp_3_rw_128_fold_0_10.pt",
-                                  fold_index=0)
+    # model = tune_stage_2_model_3d(CONFIG['backbone'],
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_37_aligned",
+    #                               "models/coatnet_rmlp_3_rw_128_fold_0_pt4/coatnet_rmlp_3_rw_128_fold_0_10.pt",
+    #                               fold_index=0)
 
 
 if __name__ == '__main__':
