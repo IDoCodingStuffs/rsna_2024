@@ -11,6 +11,7 @@ figures
 traces
 wandb
 dataframes
+cacheddata
 
 submission.csv
 foo.py
