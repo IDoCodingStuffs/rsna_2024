@@ -191,7 +191,7 @@ class StudyPerVertebraLevelDataset(Dataset):
         center_1 = np.array(curr_centers.iloc[0][["x", "y", "z"]].values)
         center_2 = np.array(curr_centers.iloc[1][["x", "y", "z"]].values)
 
-        study_images = read_vertebral_level_as_voxel_grid_aligned(study_path,
+        study_images = read_vertebral_level_as_voxel_grid_nonaligned(study_path,
                                                                 vertebral_level=level,
                                                                 center_point_pair=(center_1, center_2),
                                                                 min_bound=np.array(
@@ -791,7 +791,7 @@ def read_vertebral_level_as_voxel_grid_alt(dir_path,
     return grid
 
 
-def read_vertebral_level_as_voxel_grid_plane(dir_path,
+def read_vertebral_level_as_voxel_grid_nonaligned(dir_path,
                                              vertebral_level: str,
                                              center_point_pair: tuple,
                                              max_bound: np.array,
@@ -803,7 +803,7 @@ def read_vertebral_level_as_voxel_grid_plane(dir_path,
                                              caching=True,
                                              ):
     cache_path = os.path.join(dir_path,
-                              f"cached_grid_plane_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+                              f"cached_grid_nonaligned_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
     if caching and os.path.exists(cache_path):
         try:
@@ -1061,7 +1061,7 @@ def read_vertebral_levels_as_voxel_grids_alt(dir_path,
     return ret
 
 
-def read_vertebral_levels_as_voxel_grids_plane(dir_path,
+def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
                                                vertebral_levels: list[str],
                                                max_bounds: list[np.array],
                                                min_bounds: list[np.array],
@@ -1076,7 +1076,7 @@ def read_vertebral_levels_as_voxel_grids_plane(dir_path,
 
     for index, vertebral_level in enumerate(vertebral_levels):
         cache_path = os.path.join(dir_path,
-                                  f"cached_grid_plane_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
+                                  f"cached_grid_nonaligned_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
         f = None
         if os.path.exists(cache_path):
             try:

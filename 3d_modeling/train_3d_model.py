@@ -63,7 +63,9 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
                 embed_dim=(192, 384, 768, 1536),
+                # embed_dim=(256, 512, 1280, 2048),
                 depths=(2, 12, 28, 2),
+                # stem_width=(128, 256),
                 stem_width=(96, 192),
                 **_rw_coat_cfg(
                     stride_mode='dw',
