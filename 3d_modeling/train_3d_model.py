@@ -41,6 +41,7 @@ DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
 
+
 class CustomMaxxVit3dClassifier(nn.Module):
     def __init__(self,
                  backbone,
@@ -51,6 +52,10 @@ class CustomMaxxVit3dClassifier(nn.Module):
         self.out_classes = out_classes
 
         self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
+        self.config.transformed_cfg.stride_mode = 'dw',
+        self.config.transformed_cfg.conv_attn_act_layer = 'silu',
+        self.config.transformed_cfg.init_values = 1e-6,
+        self.config.transformed_cfg.rel_pos_type = 'mlp'
 
         self.backbone = timm_3d.models.MaxxVit(
             img_size=CONFIG["vol_size"],
@@ -375,7 +380,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 def train():
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_rmlp_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_37_aligned",
