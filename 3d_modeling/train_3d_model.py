@@ -17,7 +17,7 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
-    backbone="coatnet_rmlp_4_rw",
+    backbone="coatnet_rmlp_narrow_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
@@ -25,15 +25,15 @@ CONFIG = dict(
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=15,
-    gradient_acc_steps=2,
+    gradient_acc_steps=1,
     drop_rate=0.25,
     drop_rate_last=0.,
     drop_path_rate=0.,
-    aug_prob=0.9,
+    aug_prob=0.75,
     out_dim=3,
-    epochs=45,
+    epochs=50,
     tune_epochs=5,
-    batch_size=8,
+    batch_size=16,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -61,11 +61,11 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(192, 384, 768, 1536),
+                embed_dim=(64, 256, 512, 1024),
                 # embed_dim=(256, 512, 1280, 2048),
-                depths=(2, 12, 28, 2),
+                depths=(2, 16, 32, 2),
                 # stem_width=(128, 256),
-                stem_width=(96, 192),
+                stem_width=(32, 64),
                 **_rw_coat_cfg(
                     stride_mode='dw',
                     conv_attn_act_layer='silu',
@@ -278,11 +278,9 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        if index == 0:
-            continue
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
+            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-3),
         ]
 
         trainloader, valloader, trainset, testset = fold
@@ -295,7 +293,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     valloader,
                                     model_desc=model_label + f"_fold_{index}",
                                     train_loader_desc=f"Training {model_label} fold {index}",
-                                    epochs=CONFIG["epochs"],
+                                    epochs=CONFIG["epochs"] + 1,
                                     freeze_backbone_initial_epochs=-1,
                                     freeze_backbone_after_epochs=-1,
                                     loss_weights=CONFIG["loss_weights"],
@@ -312,11 +310,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, isotropic=True, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=(10, 10, 10),
+                         degrees=(25, 25, 25),
+                         isotropic=True,
+                         image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
-        # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        # tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -365,7 +364,8 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
     model.load_state_dict(torch.load(model_path))
     optimizers = [
-        torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
+        # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
+        torch.optim.Adam(model.parameters(), lr=1e-3),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -390,13 +390,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
     model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_37_aligned",
-    #                               "models/coatnet_rmlp_3_rw_128_fold_0_pt4/coatnet_rmlp_3_rw_128_fold_0_10.pt",
-    #                               fold_index=0)
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_40_nonaligned",
+    #                               "models/coatnet_rmlp_4_rw_96_fold_1/coatnet_rmlp_4_rw_96_fold_1_40.pt",
+    #                               fold_index=1)
 
 
 if __name__ == '__main__':
