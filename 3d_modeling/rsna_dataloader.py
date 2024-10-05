@@ -1088,7 +1088,7 @@ def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
                                                voxel_size=(128, 128, 42)):
     ret = {}
 
-    resize = tio.Resize(voxel_size)
+    resize = tio.Resize(voxel_size, image_interpolation="bspline")
 
     for index, vertebral_level in enumerate(vertebral_levels):
         cache_path = os.path.join(dir_path,
