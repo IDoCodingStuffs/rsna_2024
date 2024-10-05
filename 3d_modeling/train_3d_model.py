@@ -17,7 +17,7 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
-    backbone="coatnet_rmlp2_narrow_rw",
+    backbone="coatnet_rmlp_narrow_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
@@ -71,7 +71,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
                     conv_attn_act_layer='silu',
                     init_values=1e-6,
                     rel_pos_type='mlp',
-                    rel_pos_dim=2048,
+                    # rel_pos_dim=2048,
                 ),
             )
         )
@@ -391,12 +391,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_40_nonaligned",
-    #                               "models/coatnet_rmlp_4_rw_96_fold_1/coatnet_rmlp_4_rw_96_fold_1_40.pt",
-    #                               fold_index=1)
+    model = tune_stage_2_model_3d(CONFIG['backbone'],
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_25_nonaligned",
+                                  "models/coatnet_rmlp_narrow_rw_96_fold_0/coatnet_rmlp_narrow_rw_96_fold_0_25.pt",
+                                  fold_index=1)
 
 
 if __name__ == '__main__':
