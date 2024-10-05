@@ -43,7 +43,6 @@ DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
 
-
 class CustomMaxxVit3dClassifier(nn.Module):
     def __init__(self,
                  backbone,
@@ -149,7 +148,8 @@ class Classifier3dMultihead(nn.Module):
 def train_model_3d(backbone, model_label: str):
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, image_interpolation=CONFIG["image_interpolation"], p=CONFIG["aug_prob"]),
+        tio.RandomAffine(translation=10, degrees=25, image_interpolation=CONFIG["image_interpolation"],
+                         p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
@@ -226,11 +226,12 @@ def train_stage_2_model_3d(backbone, model_label: str):
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=10, isotropic=True, image_interpolation=CONFIG["image_interpolation"],
+        tio.RandomAffine(translation=(10, 10, 10),
+                         degrees=(25, 25, 25),
+                         isotropic=True,
+                         image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
-        # tio.RandomAffine(translation=10, scales=0, p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        # tio.RandomSpike(1, intensity=(-0.1, 0.1), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
