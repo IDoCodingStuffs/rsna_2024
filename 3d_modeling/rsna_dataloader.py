@@ -558,9 +558,9 @@ def read_study_as_pcd(dir_path,
 
         else:
             if series_desc == "T2":
-                pcd_axial += copy.deepcopy(pcd).transform(transform_matrix)
+                pcd_axial += pcd.transform(transform_matrix)
             else:
-                pcd_sagittal += copy.deepcopy(pcd).transform(transform_matrix)
+                pcd_sagittal += pcd.transform(transform_matrix)
 
     bbox = pcd_sagittal.get_oriented_bounding_box()
     pcd_axial = pcd_axial.crop(bbox)
@@ -819,6 +819,14 @@ def read_vertebral_level_as_voxel_grid_nonaligned(dir_path,
 
     resize = tio.Resize(voxel_size)
 
+    if pcd_overall is None:
+        pcd_overall = read_study_as_pcd(dir_path,
+                          series_types_dict=series_type_dict,
+                          downsampling_factor=downsampling_factor,
+                          img_size=(voxel_size[0], voxel_size[2]),
+                          stack_slices_thickness=True,
+                          resize_slices=False)
+
     bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
     pcd_overall = pcd_overall.crop(bbox)
 
@@ -891,6 +899,14 @@ def read_vertebral_level_as_voxel_grid_aligned(dir_path,
     resize = tio.Resize(voxel_size)
 
     bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+    if pcd_overall is None:
+        pcd_overall = read_study_as_pcd(dir_path,
+                          series_types_dict=series_type_dict,
+                          downsampling_factor=downsampling_factor,
+                          img_size=(voxel_size[0], voxel_size[2]),
+                          stack_slices_thickness=True,
+                          resize_slices=False)
+
     pcd_overall = pcd_overall.crop(bbox)
 
     pts = np.array(pcd_overall.points)
