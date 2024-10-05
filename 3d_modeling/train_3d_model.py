@@ -52,6 +52,8 @@ class CustomMaxxVit3dClassifier(nn.Module):
         self.out_classes = out_classes
 
         self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
+        self.config.transformer_cfg.stem_width = (96, 192)
+        self.config.transformer_cfg.init_values = 1e-6
         self.config.transformer_cfg.stride_mode = 'dw',
         self.config.transformer_cfg.conv_attn_act_layer = 'silu',
         self.config.transformer_cfg.rel_pos_type = 'mlp'
