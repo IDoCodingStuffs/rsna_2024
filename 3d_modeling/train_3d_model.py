@@ -396,7 +396,7 @@ def train():
     model = tune_stage_2_model_3d(CONFIG['backbone'],
                                   f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_25_nonaligned",
                                   "models/coatnet_rmlp_narrow_rw_96_fold_0/coatnet_rmlp_narrow_rw_96_fold_0_25.pt",
-                                  fold_index=1)
+                                  fold_index=0)
 
 
 if __name__ == '__main__':
