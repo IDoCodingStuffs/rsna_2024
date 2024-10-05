@@ -3,6 +3,8 @@ import torch.optim.lr_scheduler
 from spacecutter.losses import CumulativeLinkLoss
 from spacecutter.models import LogisticCumulativeLink
 from spacecutter.callbacks import AscensionCallback
+from timm_3d.models import MaxxVitCfg
+from timm_3d.models.maxxvit import _rw_coat_cfg
 
 from training_utils import *
 from rsna_dataloader import *
@@ -15,7 +17,7 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    backbone="coatnet_4",
+    backbone="coatnet_rmlp_4_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(128, 128, 128),
@@ -51,12 +53,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
         super(CustomMaxxVit3dClassifier, self).__init__()
         self.out_classes = out_classes
 
-        self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
-        self.config.transformer_cfg.stem_width = (96, 192)
-        self.config.transformer_cfg.init_values = 1e-6
-        self.config.transformer_cfg.stride_mode = 'dw',
-        self.config.transformer_cfg.conv_attn_act_layer = 'silu',
-        self.config.transformer_cfg.rel_pos_type = 'mlp'
+        # self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
 
         self.backbone = timm_3d.models.MaxxVit(
             img_size=CONFIG["vol_size"],
@@ -64,7 +61,17 @@ class CustomMaxxVit3dClassifier(nn.Module):
             num_classes=out_classes,
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
-            cfg=self.config
+            cfg=MaxxVitCfg(
+                embed_dim=(192, 384, 768, 1536),
+                depths=(2, 12, 28, 2),
+                stem_width=(96, 192),
+                **_rw_coat_cfg(
+                    stride_mode='dw',
+                    conv_attn_act_layer='silu',
+                    init_values=1e-6,
+                    rel_pos_type='mlp'
+                ),
+            )
         )
         self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
         head_in_dim = self.backbone.head.fc.in_features
@@ -381,7 +388,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 def train():
     # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_vertebrae")
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_rmlp_{CONFIG['vol_size'][0]}")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_37_aligned",
