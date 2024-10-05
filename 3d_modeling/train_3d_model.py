@@ -17,7 +17,7 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
-    backbone="coatnet_rmlp2_narrow_rw",
+    backbone="coatnet_rmlp2_narrower_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
@@ -61,7 +61,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(64, 256, 512, 1024),
+                embed_dim=(32, 128, 256, 512),
                 # embed_dim=(256, 512, 1280, 2048),
                 depths=(2, 16, 32, 2),
                 # stem_width=(128, 256),
