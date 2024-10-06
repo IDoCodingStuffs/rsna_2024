@@ -68,24 +68,24 @@ def worker_loop(dirslice):
 
 if __name__ == "__main__":
 
-    # print("Caching 3d volumes and train dataframe...")
-    # dirs = [
-    #     Config.data_basepath + "train_images/" + str(study_id)
-    #     for study_id in train_df.study_id.unique()
-    # ]
-    # dirs = sorted(dirs)
+    print("Caching 3d volumes and train dataframe...")
+    dirs = [
+        Config.data_basepath + "train_images/" + str(study_id)
+        for study_id in train_df.study_id.unique()
+    ]
+    dirs = sorted(dirs)
 
-    # slice_size = math.ceil(len(dirs) / Config.num_workers)
+    slice_size = math.ceil(len(dirs) / Config.num_workers)
 
-    # workers = []
-    # for worker_index in range(Config.num_workers):
-    #     dirslice = dirs[slice_size * worker_index : slice_size * (worker_index + 1)]
-    #     p = Process(target=worker_loop, args=(dirslice,))
-    #     p.start()
-    #     workers.append(p)
+    workers = []
+    for worker_index in range(Config.num_workers):
+        dirslice = dirs[slice_size * worker_index : slice_size * (worker_index + 1)]
+        p = Process(target=worker_loop, args=(dirslice,))
+        p.start()
+        workers.append(p)
 
-    # for p in workers:
-    #     p.join()
+    for p in workers:
+        p.join()
 
     # Create the train dataframe with columns : study_id level path label
     train_labels_df = pd.read_csv(Config.data_basepath + "train.csv").replace(Config.LABEL_MAP)

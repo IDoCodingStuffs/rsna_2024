@@ -5,7 +5,7 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     # Data
-    data_basepath = "/Data/RSNA/"
+    data_basepath = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
     model_dir = "./models/"
     df_basepath = "./dataframes/"
 
@@ -26,12 +26,12 @@ class Config:
     }
 
     # Preprocess
-    num_workers = 1
+    num_workers = 10
     crop_shape = (64, 64, 64)
-    data_path = "/Data/RSNA/processed_studies/"
+    data_path = "./data/rsna-2024-lumbar-spine-degenerative-classification/processed_studies/"
 
     # Model
-    backbone = "tf_efficientnet_b0.in1k"
+    backbone = "efficientnet_b0"
     drop_rate = 0.3
     drop_path_rate = 0.3
     drop_rate_last = 0.

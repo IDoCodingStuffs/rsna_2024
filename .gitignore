@@ -9,6 +9,8 @@ __pycache__
 .idea
 figures
 traces
+dataframes
+wandb
 
 submission.csv
 foo.py
