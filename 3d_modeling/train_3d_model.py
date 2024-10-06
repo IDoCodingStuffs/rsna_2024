@@ -33,6 +33,7 @@ CONFIG = dict(
     out_dim=3,
     stage_1_epochs=6,
     stage_2_epochs=12,
+    stage_3_epochs=18,
     epochs=25,
     tune_epochs=5,
     batch_size=10,
@@ -304,9 +305,10 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     train_loader_desc=f"Training {model_label} fold {index}",
                                     stage_1_epochs=CONFIG["stage_1_epochs"],
                                     stage_2_epochs=CONFIG["stage_2_epochs"],
+                                    stage_3_epochs=CONFIG["stage_3_epochs"],
                                     epochs=CONFIG["epochs"] + 1,
                                     freeze_backbone_initial_epochs=-1,
-                                    freeze_backbone_after_epochs=CONFIG["epochs"],
+                                    freeze_backbone_after_epochs=-1,
                                     loss_weights=CONFIG["loss_weights"],
                                     callbacks=[model._ascension_callback],
                                     gradient_accumulation_per=CONFIG["gradient_acc_steps"]
@@ -401,12 +403,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_11_nonaligned",
-    #                               "models/coatnet_rmlp2_narrow_rw_96_fold_0/coatnet_rmlp2_narrow_rw_96_fold_0_11.pt",
-    #                               fold_index=0)
+    model = tune_stage_2_model_3d(CONFIG['backbone'],
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
+                                  "models/coatnet_rmlp2_reg_rw_96_fold_0/coatnet_rmlp2_reg_rw_96_fold_0_16.pt",
+                                  fold_index=0)
 
 
 if __name__ == '__main__':
