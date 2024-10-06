@@ -24,17 +24,17 @@ CONFIG = dict(
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=15,
+    num_workers=7,
     gradient_acc_steps=2,
     drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.,
     aug_prob=0.85,
     out_dim=3,
-    stage_1_epochs=6,
-    stage_2_epochs=12,
-    stage_3_epochs=18,
-    epochs=25,
+    stage_1_epochs=35,
+    stage_2_epochs=35,
+    stage_3_epochs=35,
+    epochs=35,
     tune_epochs=5,
     batch_size=10,
     split_rate=0.25,
@@ -266,19 +266,19 @@ def train_stage_2_model_3d(backbone, model_label: str):
     criteria = {
         "train": [
             # CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
-            nn.BCEWithLogitsLoss(weight=torch.tensor(CONFIG["loss_weights"][i]).to(device)) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor(CONDITION_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "train_2": [
-            nn.BCEWithLogitsLoss(weight=torch.tensor(CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor(CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "train_3": [
-            nn.BCEWithLogitsLoss(weight=torch.tensor(CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor(CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
-            nn.BCEWithLogitsLoss() for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss() for i in range(CONFIG["num_conditions"])
         ],
         "alt_val": [
-            nn.BCEWithLogitsLoss(weight=torch.tensor(COMP_WEIGHTS[i]).to(device)) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor(COMP_WEIGHTS[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "weighted_alt_val": [
             #nn.BCELoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])

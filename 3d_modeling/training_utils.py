@@ -196,12 +196,12 @@ def train_model_with_validation(model,
                 if freeze_backbone_after_epochs >= 0 and epoch >= freeze_backbone_after_epochs:
                     freeze_model_backbone(model)
                     losses = loss_fns["alt_val"]
-                elif epoch >= stage_3_epochs:
-                    losses = loss_fns["alt_val"]
-                elif epoch >= stage_2_epochs:
-                    losses = loss_fns["train_3"]
-                elif epoch >= stage_1_epochs:
-                    losses = loss_fns["train_2"]
+                # elif epoch >= stage_3_epochs:
+                #     losses = loss_fns["alt_val"]
+                # elif epoch >= stage_2_epochs:
+                #     losses = loss_fns["train_3"]
+                # elif epoch >= stage_1_epochs:
+                #     losses = loss_fns["train_2"]
 
                 if len(losses) > 1:
                     loss = sum([(loss_fn(output[:, loss_index],
