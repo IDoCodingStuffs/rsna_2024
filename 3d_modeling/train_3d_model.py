@@ -24,7 +24,7 @@ CONFIG = dict(
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=15,
+    num_workers=7,
     gradient_acc_steps=2,
     drop_rate=0.35,
     drop_rate_last=0.,
@@ -133,8 +133,8 @@ class Classifier3dMultihead(nn.Module):
 
         self.heads = nn.ModuleList(
             [nn.Sequential(
-                nn.Linear(head_in_dim, 1),
-                LogisticCumulativeLink(CONFIG["out_dim"])
+                nn.Linear(head_in_dim, 3),
+                #LogisticCumulativeLink(CONFIG["out_dim"])
             ) for i in range(out_classes)]
         )
 
@@ -265,25 +265,26 @@ def train_stage_2_model_3d(backbone, model_label: str):
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
+            # CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
+            nn.BCEWithLogitsLoss(weight=torch.tensor(CONFIG["loss_weights"][i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "train_2": [
-            CumulativeLinkLoss(class_weights=CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+            nn.BCEWithLogitsLoss(weight=torch.tensor(CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "train_3": [
-            CumulativeLinkLoss(class_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+            nn.BCEWithLogitsLoss(weight=torch.tensor(CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
-            CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
+            nn.BCEWithLogitsLoss() for i in range(CONFIG["num_conditions"])
         ],
         "alt_val": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
+            nn.BCEWithLogitsLoss(weight=torch.tensor(COMP_WEIGHTS[i]).to(device)) for i in range(CONFIG["num_conditions"])
         ],
         "weighted_alt_val": [
-            nn.BCELoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
+            #nn.BCELoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_alt_val": [
-            nn.BCELoss().to(device) for i in range(CONFIG["num_conditions"])
+            #nn.BCELoss().to(device) for i in range(CONFIG["num_conditions"])
         ]
     }
 
@@ -310,7 +311,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     freeze_backbone_initial_epochs=-1,
                                     freeze_backbone_after_epochs=-1,
                                     loss_weights=CONFIG["loss_weights"],
-                                    callbacks=[model._ascension_callback],
+                                    # callbacks=[model._ascension_callback],
                                     gradient_accumulation_per=CONFIG["gradient_acc_steps"]
                                     )
 
@@ -403,12 +404,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
-                                  "models/coatnet_rmlp2_reg_rw_96_fold_0/coatnet_rmlp2_reg_rw_96_fold_0_16.pt",
-                                  fold_index=0)
+    # model = tune_stage_2_model_3d(CONFIG['backbone'],
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
+    #                               "models/coatnet_rmlp2_reg_rw_96_fold_0/coatnet_rmlp2_reg_rw_96_fold_0_16.pt",
+    #                               fold_index=0)
 
 
 if __name__ == '__main__':
