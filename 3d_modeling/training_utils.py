@@ -42,14 +42,16 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
 
             for index, loss_fn in enumerate(loss_fns["train"]):
                 if len(loss_fns["train"]) > 1:
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
+                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
+                    loss = loss_fn(output[:, index], label_) / len(loss_fns["train"])
                 else:
                     loss = loss_fn(output, label) / len(loss_fns["train"])
                 val_loss += loss.cpu().item()
 
             for index, loss_fn in enumerate(loss_fns["unweighted_val"]):
                 if len(loss_fns["unweighted_val"]) > 1:
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["unweighted_val"])
+                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
+                    loss = loss_fn(output[:, index], label_) / len(loss_fns["unweighted_val"])
                 else:
                     loss = loss_fn(output, label) / len(loss_fns["unweighted_val"])
                 unweighted_val_loss += loss.cpu().item()
@@ -57,8 +59,9 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
             for index, loss_fn in enumerate(loss_fns["alt_val"]):
                 if len(loss_fns["alt_val"]) > 1:
                     # !TODO: Label squeezed for CE loss
+                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
                     # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
+                    loss = loss_fn(output[:, index], label_) / len(loss_fns["alt_val"])
                 else:
                     loss = loss_fn(output, label) / len(loss_fns["alt_val"])
                 alt_val_loss += loss.cpu().item()
@@ -201,7 +204,8 @@ def train_model_with_validation(model,
                     losses = loss_fns["train_2"]
 
                 if len(losses) > 1:
-                    loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index]) / gradient_accumulation_per) for
+                    loss = sum([(loss_fn(output[:, loss_index],
+                                         F.one_hot(label.squeeze(-1)[:, loss_index], num_classes=3).to(torch.float)) / gradient_accumulation_per) for
                                 loss_index, loss_fn in enumerate(losses)]) / len(losses)
                 else:
                     loss = losses[0](output, label) / gradient_accumulation_per
