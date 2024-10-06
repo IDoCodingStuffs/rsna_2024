@@ -111,6 +111,16 @@ def dump_plots_for_loss_and_acc(losses,
     plt.savefig(f'./figures/{model_label}_loss.png')
     plt.close()
 
+    with open(f'./figures/{model_label}_loss.txt', "a") as f:
+        f.writelines([
+            f"Epoch {len(losses)}\n",
+            f"Unweighted Cumulative Link Loss: {unweighted_val_losses[-1]:.4f}",
+            f"Competition Weighted Cumulative Link Loss: {alt_val_losses[-1]:.4f}",
+            f"Unweighted BCELoss: {unweighted_alt_val_losses[-1]:.4f}",
+            f"Competition Weighted BCELoss: {weighted_alt_val_losses[-1]:.4f}",
+            "================================================================"
+        ])
+
 
 def trace_handler(p):
     output = p.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10)
