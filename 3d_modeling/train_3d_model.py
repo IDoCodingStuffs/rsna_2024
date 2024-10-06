@@ -306,7 +306,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     stage_2_epochs=CONFIG["stage_2_epochs"],
                                     epochs=CONFIG["epochs"] + 1,
                                     freeze_backbone_initial_epochs=-1,
-                                    freeze_backbone_after_epochs=-1,
+                                    freeze_backbone_after_epochs=CONFIG["epochs"],
                                     loss_weights=CONFIG["loss_weights"],
                                     callbacks=[model._ascension_callback],
                                     gradient_accumulation_per=CONFIG["gradient_acc_steps"]
