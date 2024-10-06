@@ -3,10 +3,11 @@ from copy import copy
 import numpy as np
 import torch
 import pandas as pd
+import os
 
 from rsna_dataloader import retrieve_coordinate_training_data
 
-DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
+DATA_BASEPATH = f"{os.path.dirname(os.path.dirname(__file__))}/data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
 CLASS_RELATIVE_WEIGHTS = TRAINING_DATA[["condition", "level", "severity"]].groupby(["condition", "level", "severity"]).size().values

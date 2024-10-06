@@ -26,12 +26,12 @@ CONFIG = dict(
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=15,
     gradient_acc_steps=1,
-    drop_rate=0.25,
+    drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.,
-    aug_prob=0.75,
+    aug_prob=0.85,
     out_dim=3,
-    epochs=50,
+    epochs=25,
     tune_epochs=5,
     batch_size=16,
     split_rate=0.25,
@@ -394,9 +394,9 @@ def train():
     model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_40_nonaligned",
-    #                               "models/coatnet_rmlp_4_rw_96_fold_1/coatnet_rmlp_4_rw_96_fold_1_40.pt",
-    #                               fold_index=1)
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
+    #                               "models/coatnet_rmlp_narrow_rw_96_fold_0/coatnet_rmlp_narrow_rw_96_fold_0_16.pt",
+    #                               fold_index=0)
 
 
 if __name__ == '__main__':
