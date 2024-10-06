@@ -17,7 +17,7 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="bspline",
-    backbone="coatnet_rmlp2_narrow_rw",
+    backbone="coatnet_rmlp2_reg_rw",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
@@ -25,15 +25,17 @@ CONFIG = dict(
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=15,
-    gradient_acc_steps=1,
+    gradient_acc_steps=2,
     drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.,
     aug_prob=0.85,
     out_dim=3,
+    stage_1_epochs=6,
+    stage_2_epochs=12,
     epochs=25,
     tune_epochs=5,
-    batch_size=16,
+    batch_size=10,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -61,11 +63,11 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(64, 256, 512, 1024),
+                embed_dim=(96, 384, 768, 1536),
                 # embed_dim=(256, 512, 1280, 2048),
                 depths=(2, 16, 32, 2),
                 # stem_width=(128, 256),
-                stem_width=(32, 64),
+                stem_width=(48, 96),
                 **_rw_coat_cfg(
                     stride_mode='dw',
                     conv_attn_act_layer='silu',
@@ -264,6 +266,12 @@ def train_stage_2_model_3d(backbone, model_label: str):
         "train": [
             CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
         ],
+        "train_2": [
+            CumulativeLinkLoss(class_weights=CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+        ],
+        "train_3": [
+            CumulativeLinkLoss(class_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+        ],
         "unweighted_val": [
             CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
         ],
@@ -281,7 +289,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-3),
+            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
 
         trainloader, valloader, trainset, testset = fold
@@ -294,6 +302,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     valloader,
                                     model_desc=model_label + f"_fold_{index}",
                                     train_loader_desc=f"Training {model_label} fold {index}",
+                                    stage_1_epochs=CONFIG["stage_1_epochs"],
+                                    stage_2_epochs=CONFIG["stage_2_epochs"],
                                     epochs=CONFIG["epochs"] + 1,
                                     freeze_backbone_initial_epochs=-1,
                                     freeze_backbone_after_epochs=-1,
@@ -394,8 +404,8 @@ def train():
     model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
-    #                               "models/coatnet_rmlp_narrow_rw_96_fold_0/coatnet_rmlp_narrow_rw_96_fold_0_16.pt",
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_11_nonaligned",
+    #                               "models/coatnet_rmlp2_narrow_rw_96_fold_0/coatnet_rmlp2_narrow_rw_96_fold_0_11.pt",
     #                               fold_index=0)
 
 

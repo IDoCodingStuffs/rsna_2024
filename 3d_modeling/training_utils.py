@@ -142,6 +142,8 @@ def train_model_with_validation(model,
                                 train_loader_desc=None,
                                 model_desc="my_model",
                                 gradient_accumulation_per=1,
+                                stage_1_epochs=10,
+                                stage_2_epochs=10,
                                 epochs=10,
                                 freeze_backbone_initial_epochs=-1,
                                 freeze_backbone_after_epochs=-1,
@@ -180,6 +182,10 @@ def train_model_with_validation(model,
                 if freeze_backbone_after_epochs >= 0 and epoch >= freeze_backbone_after_epochs:
                     freeze_model_backbone(model)
                     losses = loss_fns["alt_val"]
+                elif epoch >= stage_2_epochs:
+                    losses = loss_fns["train_3"]
+                elif epoch >= stage_1_epochs:
+                    losses = loss_fns["train_2"]
 
                 if len(losses) > 1:
                     loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index]) / gradient_accumulation_per) for
