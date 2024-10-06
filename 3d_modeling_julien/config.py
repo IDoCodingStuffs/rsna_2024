@@ -27,7 +27,7 @@ class Config:
 
     # Preprocess
     num_workers = 1
-    crop_shape = (64, 64, 64)
+    crop_shape = (96, 96, 96)
     data_path = "/Data/RSNA/processed_studies/"
 
     # Model
