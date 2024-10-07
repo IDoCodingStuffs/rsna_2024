@@ -4,6 +4,7 @@ from spacecutter.losses import CumulativeLinkLoss
 from spacecutter.models import LogisticCumulativeLink
 from spacecutter.callbacks import AscensionCallback
 from timm_3d.models import MaxxVitCfg
+from timm_3d.models.efficientformer import _create_efficientformer
 from timm_3d.models.maxxvit import _rw_coat_cfg
 
 from training_utils import *
@@ -17,26 +18,27 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    backbone="coatnet_rmlp2_reg_rw",
+    # backbone="coatnet_rmlp_5_rw",
+    backbone="efficientformer_l7",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=15,
-    gradient_acc_steps=2,
+    num_workers=18,
+    gradient_acc_steps=3,
     drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.,
     aug_prob=0.85,
     out_dim=3,
-    stage_1_epochs=6,
-    stage_2_epochs=12,
+    stage_1_epochs=24,
+    stage_2_epochs=24,
     stage_3_epochs=24,
-    epochs=35,
+    epochs=26,
     tune_epochs=5,
-    batch_size=10,
+    batch_size=7,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -44,6 +46,48 @@ CONFIG = dict(
 )
 DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
+
+
+class CustomEfficientformer3dClassifier(nn.Module):
+    def __init__(self,
+                 backbone,
+                 in_chans=3,
+                 out_classes=5,
+                 cutpoint_margin=0):
+        super(CustomEfficientformer3dClassifier, self).__init__()
+        self.out_classes = out_classes
+
+        # self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
+
+        model_args = dict(
+            depths=(4, 4, 12, 6),
+            embed_dims=(96, 192, 384, 768),
+            num_vit=4,
+        )
+
+        self.backbone = _create_efficientformer(
+
+        )
+        self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
+        head_in_dim = self.backbone.head.fc.in_features
+        self.backbone.head.fc = nn.Identity()
+
+        self.heads = nn.ModuleList(
+            [nn.Sequential(
+                nn.Linear(head_in_dim, 1),
+                LogisticCumulativeLink(CONFIG["out_dim"])
+            ) for i in range(out_classes)]
+        )
+
+        self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
+
+    def forward(self, x):
+        feat = self.backbone(x)
+        return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
+
+    def _ascension_callback(self):
+        for head in self.heads:
+            self.ascension_callback.clip(head[-1])
 
 
 class CustomMaxxVit3dClassifier(nn.Module):
@@ -64,17 +108,15 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(96, 384, 768, 1536),
-                # embed_dim=(256, 512, 1280, 2048),
-                depths=(2, 16, 32, 2),
-                # stem_width=(128, 256),
-                stem_width=(48, 96),
+                embed_dim=(256, 512, 1280, 2048),
+                depths=(2, 8, 16, 2),
+                stem_width=(128, 256),
                 **_rw_coat_cfg(
                     stride_mode='dw',
                     conv_attn_act_layer='silu',
                     init_values=1e-6,
                     rel_pos_type='mlp',
-                    rel_pos_dim=2048,
+                    rel_pos_dim=512,
                 ),
             )
         )
@@ -236,6 +278,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
+        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -288,7 +331,10 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        if index == 0:
+            continue
+        # model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        model = Classifier3dMultihead(backbone=backbone, in_chans=3)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
