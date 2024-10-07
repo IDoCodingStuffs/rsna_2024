@@ -18,8 +18,8 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    # backbone="coatnet_rmlp_5_rw",
-    backbone="efficientformer_l7",
+    backbone="maxvit_rmlp_bc_rw",
+    # backbone="efficientformer_l7",
     # backbone="maxxvit_rmlp_small_rw_256",
     # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
@@ -108,9 +108,9 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(256, 512, 1280, 2048),
-                depths=(2, 8, 16, 2),
-                stem_width=(128, 256),
+                embed_dim=(512, 784, 1280, 1568),
+                depths=(2, 4, 8, 2),
+                stem_width=(256, 512),
                 **_rw_coat_cfg(
                     stride_mode='dw',
                     conv_attn_act_layer='silu',
@@ -333,8 +333,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         if index == 0:
             continue
-        # model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
-        model = Classifier3dMultihead(backbone=backbone, in_chans=3)
+        model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        # model = Classifier3dMultihead(backbone=backbone, in_chans=3)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
