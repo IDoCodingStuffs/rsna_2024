@@ -33,8 +33,8 @@ CONFIG = dict(
     out_dim=3,
     stage_1_epochs=6,
     stage_2_epochs=12,
-    stage_3_epochs=18,
-    epochs=25,
+    stage_3_epochs=24,
+    epochs=35,
     tune_epochs=5,
     batch_size=10,
     split_rate=0.25,
@@ -403,7 +403,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_v2")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
     #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
