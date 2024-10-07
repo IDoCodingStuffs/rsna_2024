@@ -331,8 +331,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        if index == 0:
-            continue
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         # model = Classifier3dMultihead(backbone=backbone, in_chans=3)
         optimizers = [
