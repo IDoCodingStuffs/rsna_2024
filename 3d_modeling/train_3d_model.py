@@ -24,7 +24,7 @@ CONFIG = dict(
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=7,
+    num_workers=15,
     gradient_acc_steps=2,
     drop_rate=0.35,
     drop_rate_last=0.,
@@ -288,8 +288,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        if index == 0:
-            continue
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
