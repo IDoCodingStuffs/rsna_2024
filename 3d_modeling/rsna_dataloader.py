@@ -552,9 +552,9 @@ def read_study_as_pcd(dir_path,
                 transform_matrix = transform_matrix @ transform_matrix_factor
 
                 if series_desc == "T2":
-                    pcd_axial += pcd.transform(transform_matrix)
+                    pcd_axial += copy.deepcopy(pcd).transform(transform_matrix)
                 else:
-                    pcd_sagittal += pcd.transform(transform_matrix)
+                    pcd_sagittal += copy.deepcopy(pcd).transform(transform_matrix)
 
         else:
             if series_desc == "T2":
