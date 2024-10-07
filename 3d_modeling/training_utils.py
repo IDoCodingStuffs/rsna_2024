@@ -114,11 +114,11 @@ def dump_plots_for_loss_and_acc(losses,
     with open(f'./figures/{model_label}_loss.txt', "a") as f:
         f.writelines([
             f"Epoch {len(losses)}\n",
-            f"Unweighted Cumulative Link Loss: {unweighted_val_losses[-1]:.4f}",
-            f"Competition Weighted Cumulative Link Loss: {alt_val_losses[-1]:.4f}",
-            f"Unweighted BCELoss: {unweighted_alt_val_losses[-1]:.4f}",
-            f"Competition Weighted BCELoss: {weighted_alt_val_losses[-1]:.4f}",
-            "================================================================"
+            f"Unweighted Cumulative Link Loss: {unweighted_val_losses[-1]:.4f}\n",
+            f"Competition Weighted Cumulative Link Loss: {alt_val_losses[-1]:.4f}\n",
+            f"Unweighted BCELoss: {unweighted_alt_val_losses[-1]:.4f}\n",
+            f"Competition Weighted BCELoss: {weighted_alt_val_losses[-1]:.4f}\n",
+            "================================================================\n"
         ])
 
 
@@ -272,9 +272,9 @@ def train_model_with_validation(model,
                                     train_loader_desc, model_desc)
         print(f"Training Loss for epoch {epoch}: {epoch_loss:.6f}")
         print(f"Validation Loss for epoch {epoch}: {epoch_validation_loss:.6f}")
-        print(f"Unweighted Validation Loss for epoch {epoch}: {epoch_unweighted_validation_loss:.6f}")
-        print(f"Alt Validation Loss for epoch {epoch}: {epoch_alt_validation_loss:.6f}")
-        print(f"Unweighted Alt Validation Loss for epoch {epoch}: {epoch_unweighted_alt_validation_loss:.6f}")
-        print(f"Weighted Alt Validation Loss for epoch {epoch}: {epoch_weighted_alt_validation_loss:.6f}")
+        print(f"Unweighted Cumulative Link Loss for epoch {epoch}: {epoch_unweighted_validation_loss:.6f}")
+        print(f"Competition Weighted Cumulative Link Loss for epoch {epoch}: {epoch_alt_validation_loss:.6f}")
+        print(f"Unweighted BCELoss for epoch {epoch}: {epoch_unweighted_alt_validation_loss:.6f}")
+        print(f"Competition Weighted BCELoss for epoch {epoch}: {epoch_weighted_alt_validation_loss:.6f}")
 
     return epoch_losses, epoch_validation_losses
