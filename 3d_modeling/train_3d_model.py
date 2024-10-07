@@ -18,25 +18,24 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    backbone="maxvit_rmlp_bc_rw",
+    backbone="coatnet_rmlp_5_rw",
+    # backbone="maxvit_rmlp_bc_rw",
     # backbone="efficientformer_l7",
-    # backbone="maxxvit_rmlp_small_rw_256",
-    # backbone="coatnet_nano_cc",
     vol_size=(96, 96, 96),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=18,
-    gradient_acc_steps=3,
+    gradient_acc_steps=2,
     drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.,
     aug_prob=0.85,
     out_dim=3,
-    stage_1_epochs=24,
-    stage_2_epochs=24,
-    stage_3_epochs=24,
-    epochs=26,
+    stage_1_epochs=40,
+    stage_2_epochs=40,
+    stage_3_epochs=40,
+    epochs=40,
     tune_epochs=5,
     batch_size=7,
     split_rate=0.25,
@@ -108,9 +107,9 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(512, 784, 1280, 1568),
-                depths=(2, 4, 8, 2),
-                stem_width=(256, 512),
+                embed_dim=(256, 512, 1280, 2048),
+                depths=(2, 8, 16, 2),
+                stem_width=(128, 256),
                 **_rw_coat_cfg(
                     stride_mode='dw',
                     conv_attn_act_layer='silu',
@@ -197,7 +196,7 @@ def train_model_3d(backbone, model_label: str):
         tio.RandomAffine(translation=10, degrees=25, image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
+        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 3),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -278,7 +277,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
+        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 10),
         tio.RescaleIntensity((0, 1)),
     ])
 
@@ -450,9 +449,9 @@ def train():
     model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_v2")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
     # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
-    #                               "models/coatnet_rmlp2_reg_rw_96_fold_0/coatnet_rmlp2_reg_rw_96_fold_0_16.pt",
-    #                               fold_index=0)
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_23_v2",
+    #                               "models/coatnet_rmlp_5_rw_96_v2_fold_1/coatnet_rmlp_5_rw_96_v2_fold_1_23.pt",
+    #                               fold_index=1)
 
 
 if __name__ == '__main__':
