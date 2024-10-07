@@ -5,7 +5,7 @@ from spacecutter.models import LogisticCumulativeLink
 from spacecutter.callbacks import AscensionCallback
 from timm_3d.models import MaxxVitCfg
 from timm_3d.models.efficientformer import _create_efficientformer
-from timm_3d.models.maxxvit import _rw_coat_cfg
+from timm_3d.models.maxxvit import _rw_coat_cfg, _rw_max_cfg
 
 from training_utils import *
 from rsna_dataloader import *
@@ -18,8 +18,8 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    backbone="coatnet_rmlp_5_rw",
-    # backbone="maxvit_rmlp_bc_rw",
+    # backbone="coatnet_rmlp_5_rw",
+    backbone="maxvit_rmlp_bc_rw",
     # backbone="efficientformer_l7",
     vol_size=(96, 96, 96),
     # vol_size=(256, 256, 256),
@@ -37,7 +37,7 @@ CONFIG = dict(
     stage_3_epochs=50,
     epochs=50,
     tune_epochs=5,
-    batch_size=7,
+    batch_size=9,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -107,16 +107,19 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(256, 512, 1280, 2048),
-                depths=(2, 8, 16, 2),
+                embed_dim=(256, 512, 768, 1536),
+                depths=(2, 10, 20, 2),
                 stem_width=(128, 256),
-                **_rw_coat_cfg(
-                    stride_mode='dw',
-                    conv_attn_act_layer='silu',
-                    init_values=1e-6,
+                # **_rw_coat_cfg(
+                #     stride_mode='dw',
+                #     conv_attn_act_layer='silu',
+                #     init_values=1e-6,
+                #     rel_pos_type='mlp',
+                #     rel_pos_dim=512,
+                # ),
+                **_rw_max_cfg(
                     rel_pos_type='mlp',
-                    rel_pos_dim=512,
-                ),
+                )
             )
         )
         self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
