@@ -24,7 +24,7 @@ CONFIG = dict(
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=15,
+    num_workers=7,
     gradient_acc_steps=2,
     drop_rate=0.35,
     drop_rate_last=0.,
@@ -288,6 +288,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
+        if index == 0:
+            continue
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
@@ -403,12 +405,12 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
 
 def train():
-    # model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
+    model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
-                                  "models/coatnet_rmlp2_reg_rw_96_fold_0/coatnet_rmlp2_reg_rw_96_fold_0_16.pt",
-                                  fold_index=0)
+    # model = tune_stage_2_model_3d(CONFIG['backbone'],
+    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_16_nonaligned",
+    #                               "models/coatnet_rmlp2_reg_rw_96_fold_0/coatnet_rmlp2_reg_rw_96_fold_0_16.pt",
+    #                               fold_index=0)
 
 
 if __name__ == '__main__':

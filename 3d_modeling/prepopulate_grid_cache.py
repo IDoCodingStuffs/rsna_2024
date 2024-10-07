@@ -62,7 +62,7 @@ def worker_loop(dirslice):
             max_bounds=max_bounds,
             center_point_pairs=point_pairs,
             series_type_dict=series_descs,
-            voxel_size=(144, 144, 144))
+            voxel_size=(160, 160, 160))
 
 
 if __name__ == "__main__":
