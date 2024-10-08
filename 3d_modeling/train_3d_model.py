@@ -68,6 +68,7 @@ class CustomEfficientformer3dClassifier(nn.Module):
             model_cls=EfficientFormer,
             variant=backbone,
             pretrained=False,
+            pretrained_strict=False,
             pretrained_cfg=dict(
                 input_size=(3, 96, 96, 96),
                 interpolation="linear",
@@ -90,8 +91,9 @@ class CustomEfficientformer3dClassifier(nn.Module):
 
         self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
 
-    def forward(self, x):
+    def forward(self, x, level):
         feat = self.backbone(x)
+        feat = torch.concat([feat, level], dim=1)
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
 
     def _ascension_callback(self):
@@ -117,9 +119,9 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(256, 512, 768, 1536),
-                depths=(2, 10, 20, 2),
-                stem_width=(128, 256),
+                embed_dim=(192, 384, 768, 1536),
+                depths=(2, 16, 32, 2),
+                stem_width=(96, 192),
                 # **_rw_coat_cfg(
                 #     stride_mode='dw',
                 #     conv_attn_act_layer='silu',
@@ -344,8 +346,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        # model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
-        model = CustomEfficientformer3dClassifier(backbone=backbone)
+        model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        # model = CustomEfficientformer3dClassifier(backbone=backbone).to(device)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
