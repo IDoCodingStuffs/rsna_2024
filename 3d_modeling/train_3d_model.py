@@ -122,6 +122,8 @@ class CustomMaxxVit3dClassifier(nn.Module):
                 embed_dim=(192, 384, 768, 1536),
                 depths=(2, 16, 32, 2),
                 stem_width=96,
+                stem_bias=True,
+                head_hidden_size=1536
                 # **_rw_coat_cfg(
                 #     stride_mode='dw',
                 #     conv_attn_act_layer='silu',
