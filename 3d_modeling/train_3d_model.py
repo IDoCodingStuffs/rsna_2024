@@ -1,4 +1,5 @@
 import os.path
+from typing import Iterable
 
 import timm_3d
 import torch.optim.lr_scheduler
@@ -120,6 +121,43 @@ class LevelInjectorHead(NormMlpClassifierHead):
             return x
         x = self.fc(x)
         return x
+
+
+class CustomMaxxVit3dClassifierEnsemble(nn.Module):
+    def __init__(self,
+                 models=Iterable[CustomMaxxVit3dClassifier],
+                 out_classes=5
+                 ):
+        super(CustomMaxxVit3dClassifierEnsemble, self).__init__()
+        self.backbones = [model.backbone for model in models]
+
+        for backbone in self.backbones:
+            for param in backbone.parameters():
+                param.requires_grad = False
+
+        head_in_dim = self.backbones[0].head.fc.out_features
+
+        self.heads = nn.ModuleList(
+            [nn.Sequential(
+                nn.Linear(head_in_dim * len(self.backbones), 1),
+                LogisticCumulativeLink(CONFIG["out_dim"])
+            ) for i in range(out_classes)]
+        )
+
+    def forward(self, x, level):
+        feats = []
+        for backbone in self.backbones:
+            feat = backbone.stem(x)
+            feat = backbone.stages(feat)
+            feat = backbone.head(feat, level, pre_logits=True)
+            feats.append(feat)
+
+        feat = torch.cat(feats, dim=1)
+        return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
+
+
+
+CustomMaxxVit3dClassifierEnsemble(models=[CustomMaxxVit3dClassifier("foo") for i in range(5)])
 
 
 class Classifier3dMultihead(nn.Module):
