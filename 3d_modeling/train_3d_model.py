@@ -4,8 +4,7 @@ from spacecutter.losses import CumulativeLinkLoss
 from spacecutter.models import LogisticCumulativeLink
 from spacecutter.callbacks import AscensionCallback
 from timm_3d.layers import NormMlpClassifierHead
-from timm_3d.models import MaxxVitCfg, build_model_with_cfg
-from timm_3d.models.efficientformer import _create_efficientformer, EfficientFormer
+from timm_3d.models import MaxxVitCfg
 from timm_3d.models.maxxvit import _rw_coat_cfg, _rw_max_cfg
 
 from training_utils import *
@@ -42,60 +41,6 @@ CONFIG = dict(
 )
 DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
-
-class CustomEfficientformer3dClassifier(nn.Module):
-    def __init__(self,
-                 backbone,
-                 in_chans=3,
-                 out_classes=5,
-                 cutpoint_margin=0):
-        super(CustomEfficientformer3dClassifier, self).__init__()
-        self.out_classes = out_classes
-
-        # self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
-
-        model_args = dict(
-            img_size=(3, 96, 96, 96),
-            depths=(4, 4, 12, 6),
-            embed_dims=(96, 192, 384, 768),
-            num_vit=4,
-        )
-
-        self.backbone = build_model_with_cfg(
-            model_cls=EfficientFormer,
-            variant=backbone,
-            pretrained=False,
-            pretrained_strict=False,
-            pretrained_cfg=dict(
-                input_size=(3, 96, 96, 96),
-                interpolation="linear",
-                crop_pct=1,
-                crop_mode="center"
-            ),
-            **model_args,
-        )
-        self.backbone.head_drop = nn.Dropout(p=CONFIG["drop_rate_last"])
-        head_in_dim = self.backbone.head.in_features
-        self.backbone.head = nn.Identity()
-        self.backbone.head_dist = nn.Identity()
-
-        self.heads = nn.ModuleList(
-            [nn.Sequential(
-                nn.Linear(head_in_dim, 1),
-                LogisticCumulativeLink(CONFIG["out_dim"])
-            ) for i in range(out_classes)]
-        )
-
-        self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
-
-    def forward(self, x, level):
-        feat = self.backbone(x)
-        feat = torch.concat([feat, level], dim=1)
-        return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
-
-    def _ascension_callback(self):
-        for head in self.heads:
-            self.ascension_callback.clip(head[-1])
 
 
 class CustomMaxxVit3dClassifier(nn.Module):
