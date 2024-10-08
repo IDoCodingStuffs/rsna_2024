@@ -30,12 +30,12 @@ CONFIG = dict(
     drop_rate=0.,
     drop_rate_last=0.,
     drop_path_rate=0.,
-    aug_prob=0.75,
+    aug_prob=0.5,
     out_dim=3,
-    stage_1_epochs=10,
+    stage_1_epochs=20,
     stage_2_epochs=20,
-    stage_3_epochs=22,
-    epochs=25,
+    stage_3_epochs=20,
+    epochs=20,
     tune_epochs=4,
     batch_size=12,
     split_rate=0.25,
@@ -63,11 +63,11 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(192, 384, 512, 1280),
+                embed_dim=(192, 384, 768, 1536),
                 depths=(2, 16, 32, 2),
                 stem_width=96,
                 stem_bias=True,
-                head_hidden_size=1280,
+                head_hidden_size=1536,
                 **_rw_max_cfg(
                     rel_pos_type='mlp',
                 )
@@ -270,10 +270,10 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         # model = CustomEfficientformer3dClassifier(backbone=backbone).to(device)
-        if index == 0:
+        if index < 2:
             continue
         optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
+            torch.optim.Adam(model.parameters(), lr=1e-3),
         ]
 
         trainloader, valloader, trainset, testset = fold
@@ -360,7 +360,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     model.load_state_dict(torch.load(model_path))
     optimizers = [
         # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
-        torch.optim.Adam(model.parameters(), lr=5e-5),
+        torch.optim.Adam(model.parameters(), lr=1e-4),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -375,8 +375,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 train_loader_desc=f"Tuning {model_label} fold {fold_index}",
                                 epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
-                                freeze_backbone_after_epochs=-1,
-                                stage_3_epochs=2,
+                                freeze_backbone_after_epochs=0,
                                 loss_weights=CONFIG["loss_weights"],
                                 callbacks=[model._ascension_callback],
                                 gradient_accumulation_per=CONFIG["gradient_acc_steps"]
@@ -472,9 +471,9 @@ def train():
 
 def tune():
     model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_21_v2",
-                                  "models/maxvit_rmlp_bc_rw_96_v2_fold_0/maxvit_rmlp_bc_rw_96_v2_fold_0_21.pt",
-                                  fold_index=0)
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_9_v2",
+                                  "models/maxvit_rmlp_bc_rw_96_v2_fold_1/maxvit_rmlp_bc_rw_96_v2_fold_1_9.pt",
+                                  fold_index=1)
 
 
 if __name__ == '__main__':
