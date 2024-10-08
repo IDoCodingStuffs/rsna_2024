@@ -33,7 +33,7 @@ CONFIG = dict(
     aug_prob=0.5,
     out_dim=3,
     epochs=40,
-    tune_epochs=4,
+    tune_epochs=3,
     batch_size=8,
     split_rate=0.25,
     split_k=5,
@@ -376,7 +376,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     init_model = CustomMaxxVit3dClassifierCumulative(backbone=backbone).to(device)
     init_model.load_state_dict(torch.load(model_path))
 
-    model.backbone = init_model
+    model.backbone = init_model.backbone
 
     optimizers = [
         # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
@@ -491,11 +491,11 @@ def train():
 
 def tune():
     model = tune_stage_2_model_3d(CONFIG['backbone'],
-                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_9_v2",
-                                  "models/maxvit_rmlp_bc_rw_96_v2_fold_1/maxvit_rmlp_bc_rw_96_v2_fold_2_12.pt",
-                                  fold_index=2)
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_21_v2",
+                                  "models/maxvit_rmlp_bc_rw_96_21_v2_fold_0/maxvit_rmlp_bc_rw_96_21_v2_fold_0_1.pt",
+                                  fold_index=0)
 
 
 if __name__ == '__main__':
-    train()
-    # tune()
+    # train()
+    tune()
