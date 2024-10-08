@@ -81,12 +81,10 @@ class CustomMaxxVit3dClassifier(nn.Module):
 
         self.heads = nn.ModuleList(
             [nn.Sequential(
-                nn.Linear(head_in_dim, 1),
-                LogisticCumulativeLink(CONFIG["out_dim"])
+                nn.Linear(head_in_dim, 3),
             ) for i in range(out_classes)]
         )
 
-        self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
 
     def forward(self, x, level):
         feat = self.backbone.stem(x)
@@ -94,10 +92,6 @@ class CustomMaxxVit3dClassifier(nn.Module):
         feat = self.backbone.head(feat, level, pre_logits=True)
         # feat = torch.concat([feat, level], dim=1)
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
-
-    def _ascension_callback(self):
-        for head in self.heads:
-            self.ascension_callback.clip(head[-1])
 
 
 class LevelInjectorHead(NormMlpClassifierHead):
@@ -245,26 +239,11 @@ def train_stage_2_model_3d(backbone, model_label: str):
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
-        ],
-        "train_2": [
-            CumulativeLinkLoss(class_weights=CONDITION_ELOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
-        ],
-        "train_3": [
-            CumulativeLinkLoss(class_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor([1, 2, 4])) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
-            CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss() for i in range(CONFIG["num_conditions"])
         ],
-        "alt_val": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
-        ],
-        "weighted_alt_val": [
-            nn.BCELoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
-        ],
-        "unweighted_alt_val": [
-            nn.BCELoss().to(device) for i in range(CONFIG["num_conditions"])
-        ]
     }
 
     for index, fold in enumerate(dataset_folds):
@@ -293,7 +272,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
                                     freeze_backbone_initial_epochs=-1,
                                     freeze_backbone_after_epochs=-1,
                                     loss_weights=CONFIG["loss_weights"],
-                                    callbacks=[model._ascension_callback],
                                     gradient_accumulation_per=CONFIG["gradient_acc_steps"]
                                     )
 

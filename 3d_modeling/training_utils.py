@@ -27,85 +27,46 @@ def unfreeze_model_backbone(model: nn.Module):
 def model_validation_loss(model, val_loader, loss_fns, epoch):
     val_loss = 0
     unweighted_val_loss = 0
-    alt_val_loss = 0
-    unweighted_alt_val_loss = 0
-    weighted_alt_val_loss = 0
 
     with torch.no_grad():
         model.eval()
 
         for images, level, label in tqdm(val_loader, desc=f"Validating epoch {epoch}"):
-            label = label.to(device).unsqueeze(-1)
+            label = label.to(device)
 
             with autocast("cuda", dtype=torch.bfloat16):
                 output = model(images.to(device), level.to(device))
 
             for index, loss_fn in enumerate(loss_fns["train"]):
+                label_ = F.one_hot(label[:, index], num_classes=3).to(torch.float)
                 if len(loss_fns["train"]) > 1:
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
+                    loss = loss_fn(output[:, index], label_) / len(loss_fns["train"])
                 else:
                     loss = loss_fn(output, label) / len(loss_fns["train"])
                 val_loss += loss.cpu().item()
 
             for index, loss_fn in enumerate(loss_fns["unweighted_val"]):
+                label_ = F.one_hot(label[:, index], num_classes=3).to(torch.float)
                 if len(loss_fns["unweighted_val"]) > 1:
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["unweighted_val"])
+                    loss = loss_fn(output[:, index], label_) / len(loss_fns["train"])
                 else:
                     loss = loss_fn(output, label) / len(loss_fns["unweighted_val"])
                 unweighted_val_loss += loss.cpu().item()
 
-            for index, loss_fn in enumerate(loss_fns["alt_val"]):
-                if len(loss_fns["alt_val"]) > 1:
-                    # !TODO: Label squeezed for CE loss
-                    # loss = loss_fn(output[:, index], label.squeeze(-1)[:, index]) / len(loss_fns["alt_val"])
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["alt_val"])
-                else:
-                    loss = loss_fn(output, label) / len(loss_fns["alt_val"])
-                alt_val_loss += loss.cpu().item()
-
-            for index, loss_fn in enumerate(loss_fns["unweighted_alt_val"]):
-                if len(loss_fns["unweighted_alt_val"]) > 1:
-                    # !TODO: Label squeezed for CE loss
-                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
-                    loss = loss_fn(output[:, index], label_) / len(
-                        loss_fns["unweighted_alt_val"])
-                else:
-                    loss = loss_fn(output, label) / len(loss_fns["unweighted_alt_val"])
-                unweighted_alt_val_loss += loss.cpu().item()
-
-            for index, loss_fn in enumerate(loss_fns["weighted_alt_val"]):
-                if len(loss_fns["weighted_alt_val"]) > 1:
-                    # !TODO: Label squeezed for CE loss
-                    label_ = F.one_hot(label.squeeze(-1)[:, index], num_classes=3).to(torch.float)
-                    loss = loss_fn(output[:, index], label_) / len(
-                        loss_fns["weighted_alt_val"])
-                else:
-                    loss = loss_fn(output, label) / len(loss_fns["weighted_alt_val"])
-                weighted_alt_val_loss += loss.cpu().item()
-
         val_loss = val_loss / len(val_loader)
         unweighted_val_loss = unweighted_val_loss / len(val_loader)
-        alt_val_loss = alt_val_loss / len(val_loader)
-        unweighted_alt_val_loss = unweighted_alt_val_loss / len(val_loader)
-        weighted_alt_val_loss = weighted_alt_val_loss / len(val_loader)
 
-        return val_loss, unweighted_val_loss, alt_val_loss, weighted_alt_val_loss, unweighted_alt_val_loss
+        return val_loss, unweighted_val_loss
 
 
 def dump_plots_for_loss_and_acc(losses,
                                 val_losses,
                                 unweighted_val_losses,
-                                alt_val_losses,
-                                weighted_alt_val_losses,
-                                unweighted_alt_val_losses,
                                 data_subset_label,
                                 model_label):
     plt.plot(np.log(losses), label="train")
     plt.plot(np.log(val_losses), label="val")
-    plt.plot(np.log(unweighted_val_losses), label="unweighted_link_val")
-    plt.plot(np.log(alt_val_losses), label="comp_weighted_link_val")
-    plt.plot(np.log(weighted_alt_val_losses), label="comp_weighted_ce_val")
-    plt.plot(np.log(unweighted_alt_val_losses), label="unweighted_ce_val")
+    plt.plot(np.log(unweighted_val_losses), label="unweighted_val")
     plt.legend(loc="center right")
     plt.title(data_subset_label)
     plt.savefig(f'./figures/{model_label}_loss.png')
@@ -114,10 +75,7 @@ def dump_plots_for_loss_and_acc(losses,
     with open(f'./figures/{model_label}_loss.txt', "a") as f:
         f.writelines([
             f"Epoch {len(losses)}\n",
-            f"Unweighted Cumulative Link Loss: {unweighted_val_losses[-1]:.4f}\n",
-            f"Competition Weighted Cumulative Link Loss: {alt_val_losses[-1]:.4f}\n",
-            f"Unweighted BCELoss: {unweighted_alt_val_losses[-1]:.4f}\n",
-            f"Competition Weighted BCELoss: {weighted_alt_val_losses[-1]:.4f}\n",
+            f"Unweighted CE Loss: {unweighted_val_losses[-1]:.4f}\n",
             "================================================================\n"
         ])
 
@@ -164,9 +122,6 @@ def train_model_with_validation(model,
     epoch_losses = []
     epoch_validation_losses = []
     epoch_unweighted_validation_losses = []
-    epoch_alt_validation_losses = []
-    epoch_unweighted_alt_validation_losses = []
-    epoch_weighted_alt_validation_losses = []
 
     scaler = GradScaler(init_scale=4096)
 
@@ -201,7 +156,7 @@ def train_model_with_validation(model,
                     losses = loss_fns["train_2"]
 
                 if len(losses) > 1:
-                    loss = sum([(loss_fn(output[:, loss_index], label[:, loss_index]) / gradient_accumulation_per) for
+                    loss = sum([(loss_fn(output[:, loss_index], F.one_hot(label[:, index], num_classes=3).to(torch.float)) / gradient_accumulation_per) for
                                 loss_index, loss_fn in enumerate(losses)]) / len(losses)
                 else:
                     loss = losses[0](output, label) / gradient_accumulation_per
@@ -234,11 +189,7 @@ def train_model_with_validation(model,
                 pass
 
         epoch_loss = epoch_loss / len(train_loader)
-        (epoch_validation_loss,
-         epoch_unweighted_validation_loss,
-         epoch_alt_validation_loss,
-         epoch_weighted_alt_validation_loss,
-         epoch_unweighted_alt_validation_loss) = (
+        epoch_validation_loss, epoch_unweighted_validation_loss = (
             model_validation_loss(model, val_loader, loss_fns, epoch)
         )
 
@@ -249,8 +200,7 @@ def train_model_with_validation(model,
             or epoch == epochs - 1
             or len(epoch_validation_losses) == 0
             or epoch_validation_loss < min(epoch_validation_losses)) \
-                or epoch_unweighted_validation_loss < min(epoch_unweighted_validation_losses) \
-                or epoch_alt_validation_loss < min(epoch_alt_validation_losses):
+                or epoch_unweighted_validation_loss < min(epoch_unweighted_validation_losses):
             os.makedirs(f'./models/{model_desc}', exist_ok=True)
             torch.save(model.state_dict(),
                        # torch.jit.script(model),
@@ -258,24 +208,14 @@ def train_model_with_validation(model,
 
         epoch_validation_losses.append(epoch_validation_loss)
         epoch_unweighted_validation_losses.append(epoch_unweighted_validation_loss)
-        epoch_alt_validation_losses.append(epoch_alt_validation_loss)
-        epoch_unweighted_alt_validation_losses.append(epoch_unweighted_alt_validation_loss)
-        epoch_weighted_alt_validation_losses.append(epoch_weighted_alt_validation_loss)
-
         epoch_losses.append(epoch_loss)
 
         dump_plots_for_loss_and_acc(epoch_losses,
                                     epoch_validation_losses,
                                     epoch_unweighted_validation_losses,
-                                    epoch_alt_validation_losses,
-                                    epoch_weighted_alt_validation_losses,
-                                    epoch_unweighted_alt_validation_losses,
                                     train_loader_desc, model_desc)
         print(f"Training Loss for epoch {epoch}: {epoch_loss:.6f}")
         print(f"Validation Loss for epoch {epoch}: {epoch_validation_loss:.6f}")
-        print(f"Unweighted Cumulative Link Loss for epoch {epoch}: {epoch_unweighted_validation_loss:.6f}")
-        print(f"Competition Weighted Cumulative Link Loss for epoch {epoch}: {epoch_alt_validation_loss:.6f}")
-        print(f"Unweighted BCELoss for epoch {epoch}: {epoch_unweighted_alt_validation_loss:.6f}")
-        print(f"Competition Weighted BCELoss for epoch {epoch}: {epoch_weighted_alt_validation_loss:.6f}")
+        print(f"Unweighted CE Loss for epoch {epoch}: {epoch_unweighted_validation_loss:.6f}")
 
     return epoch_losses, epoch_validation_losses

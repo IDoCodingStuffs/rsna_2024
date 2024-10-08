@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import pandas as pd
 import os
+from sklearn.utils import class_weight
 
 from rsna_dataloader import retrieve_coordinate_training_data
 
@@ -11,9 +12,22 @@ DATA_BASEPATH = f"{os.path.dirname(os.path.dirname(__file__))}/data/rsna-2024-lu
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
 CLASS_RELATIVE_WEIGHTS = TRAINING_DATA[["condition", "level", "severity"]].groupby(["condition", "level", "severity"]).size().values
+
+
 CLASS_RELATIVE_WEIGHTS = torch.tensor(CLASS_RELATIVE_WEIGHTS)
 CLASS_RELATIVE_WEIGHTS = CLASS_RELATIVE_WEIGHTS.reshape((-1, 25, 3))
 CLASS_RELATIVE_WEIGHTS = CLASS_RELATIVE_WEIGHTS[:, :, [1, 0, 2]]
+
+CONDITION_WEIGHTS = torch.stack([sum(CLASS_RELATIVE_WEIGHTS.squeeze(0)[i:i+5]) for i in range(0, 25, 5)])
+CONDITION_WEIGHTS_MIRROR = CONDITION_WEIGHTS
+CONDITION_WEIGHTS_MIRROR[0:2] += CONDITION_WEIGHTS_MIRROR[2:4]
+CONDITION_WEIGHTS_MIRROR[2:4] = CONDITION_WEIGHTS_MIRROR[0:2]
+
+CONDITION_WEIGHTS_FOR_LOSS = [
+   class_weight.compute_class_weight('balanced', np.unique(y),y.numpy())
+ ]
+
+
 CLASS_RELATIVE_WEIGHTS = torch.max(CLASS_RELATIVE_WEIGHTS, axis=-1).values.repeat((3,1)).swapaxes(0,1) / CLASS_RELATIVE_WEIGHTS
 CLASS_RELATIVE_WEIGHTS = CLASS_RELATIVE_WEIGHTS.squeeze(0).numpy()
 
@@ -31,6 +45,7 @@ CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED[:, 2][CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPE
 CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR = 1 + np.log(CLASS_RELATIVE_WEIGHTS_MIRROR)
 CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR_NORMALIZED = torch.tensor([e / np.sum(e) * len(e) for e in CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR])
 CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR = torch.tensor(CLASS_LOGN_RELATIVE_WEIGHTS_MIRROR)
+
 
 CONDITION_RELATIVE_WEIGHTS = np.mean(CLASS_RELATIVE_WEIGHTS.reshape(-1, 5, 3), axis=0)
 
