@@ -211,7 +211,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     coords_dataframe = pd.read_csv(os.path.join("data/SpineNet/coords_3d.csv"))
 
     transform_3d_train = tio.Compose([
-        tio.ZNormalization(),
+        tio.RescaleIntensity((0, 1)),
         tio.RandomAffine(translation=(10, 10, 10),
                          degrees=(25, 25, 25),
                          isotropic=True,
@@ -219,7 +219,6 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 10),
-        tio.RescaleIntensity((0, 1)),
     ])
 
     transform_3d_val = tio.Compose([
@@ -306,18 +305,16 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     coords_dataframe = pd.read_csv(os.path.join("data/SpineNet/coords_3d.csv"))
 
     transform_3d_train = tio.Compose([
-        tio.ZNormalization(),
+        tio.RescaleIntensity((0, 1)),
         tio.RandomAffine(translation=(5, 5, 5),
                          degrees=(5, 5, 5),
                          isotropic=True,
                          image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RescaleIntensity((0, 1)),
     ])
 
     transform_3d_val = tio.Compose([
-        tio.ZNormalization(),
         tio.RescaleIntensity((0, 1)),
     ])
 
