@@ -30,10 +30,10 @@ CONFIG = dict(
     drop_path_rate=0.,
     aug_prob=0.85,
     out_dim=3,
-    stage_1_epochs=50,
-    stage_2_epochs=50,
-    stage_3_epochs=50,
-    epochs=50,
+    stage_1_epochs=25,
+    stage_2_epochs=25,
+    stage_3_epochs=25,
+    epochs=25,
     tune_epochs=10,
     batch_size=12,
     split_rate=0.25,
@@ -347,8 +347,8 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 
     transform_3d_train = tio.Compose([
         tio.ZNormalization(),
-        tio.RandomAffine(translation=(10, 10, 10),
-                         degrees=(25, 25, 25),
+        tio.RandomAffine(translation=(5, 5, 5),
+                         degrees=(5, 5, 5),
                          isotropic=True,
                          image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
@@ -429,11 +429,14 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
 def train():
     model = train_stage_2_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_v2")
     # model = train_model_3d(CONFIG['backbone'], f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_3d")
-    # model = tune_stage_2_model_3d(CONFIG['backbone'],
-    #                               f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_23_v2",
-    #                               "models/coatnet_rmlp_5_rw_96_v2_fold_1/coatnet_rmlp_5_rw_96_v2_fold_1_23.pt",
-    #                               fold_index=1)
+
+def tune():
+    model = tune_stage_2_model_3d(CONFIG['backbone'],
+                                  f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_21_v2",
+                                  "models/maxvit_rmlp_bc_rw_96_v2_fold_0/maxvit_rmlp_bc_rw_96_v2_fold_0_21.pt",
+                                  fold_index=0)
 
 
 if __name__ == '__main__':
-    train()
+    # train()
+    tune()
