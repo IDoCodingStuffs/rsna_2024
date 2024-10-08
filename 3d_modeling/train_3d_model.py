@@ -19,8 +19,8 @@ CONFIG = dict(
     num_conditions=5,
     image_interpolation="linear",
     # backbone="coatnet_rmlp_5_rw",
-    # backbone="maxvit_rmlp_bc_rw",
-    backbone="efficientformer_bc",
+    backbone="maxvit_rmlp_bc_rw",
+    # backbone="efficientformer_bc",
     vol_size=(96, 96, 96),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
@@ -121,7 +121,7 @@ class CustomMaxxVit3dClassifier(nn.Module):
             cfg=MaxxVitCfg(
                 embed_dim=(192, 384, 768, 1536),
                 depths=(2, 16, 32, 2),
-                stem_width=(96, 192),
+                stem_width=96,
                 # **_rw_coat_cfg(
                 #     stride_mode='dw',
                 #     conv_attn_act_layer='silu',
