@@ -246,6 +246,7 @@ def train_model_with_validation(model,
             scheduler.step()
 
         if (epoch % 5 == 0
+            or epoch == epochs - 1
             or len(epoch_validation_losses) == 0
             or epoch_validation_loss < min(epoch_validation_losses)) \
                 or epoch_unweighted_validation_loss < min(epoch_unweighted_validation_losses) \
