@@ -32,10 +32,10 @@ CONFIG = dict(
     drop_path_rate=0.,
     aug_prob=0.85,
     out_dim=3,
-    stage_1_epochs=24,
-    stage_2_epochs=28,
-    stage_3_epochs=32,
-    epochs=36,
+    stage_1_epochs=30,
+    stage_2_epochs=34,
+    stage_3_epochs=38,
+    epochs=42,
     tune_epochs=4,
     batch_size=12,
     split_rate=0.25,
@@ -218,7 +218,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 10),
+        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 2),
     ])
 
     transform_3d_val = tio.Compose([
@@ -272,6 +272,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         # model = CustomEfficientformer3dClassifier(backbone=backbone).to(device)
+        if index == 0:
+            continue
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
@@ -478,5 +480,5 @@ def tune():
 
 
 if __name__ == '__main__':
-    # train()
-    tune()
+    train()
+    # tune()
