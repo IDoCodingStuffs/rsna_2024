@@ -1,3 +1,5 @@
+import os.path
+
 import timm_3d
 import torch.optim.lr_scheduler
 from spacecutter.losses import CumulativeLinkLoss
@@ -39,7 +41,7 @@ CONFIG = dict(
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
     seed=2024
 )
-DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
+DATA_BASEPATH = f"{os.path.dirname(os.path.dirname(__file__))}/data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
 
