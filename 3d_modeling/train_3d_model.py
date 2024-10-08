@@ -23,21 +23,21 @@ CONFIG = dict(
     num_conditions=5,
     image_interpolation="linear",
     backbone="maxvit_rmlp_bc_rw",
-    vol_size=(160, 160, 160),
+    vol_size=(96, 96, 96),
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=18,
-    gradient_acc_steps=3,
-    drop_rate=0.35,
+    gradient_acc_steps=1,
+    drop_rate=0.1,
     drop_rate_last=0.,
     drop_path_rate=0.1,
     aug_prob=0.75,
     out_dim=3,
-    stage_1_epochs=16,
-    stage_2_epochs=18,
-    stage_3_epochs=20,
-    epochs=22,
+    stage_1_epochs=2,
+    stage_2_epochs=4,
+    stage_3_epochs=12,
+    epochs=15,
     tune_epochs=4,
-    batch_size=3,
+    batch_size=12,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -63,9 +63,9 @@ class CustomMaxxVit3dClassifier(nn.Module):
             drop_rate=CONFIG["drop_rate"],
             drop_path_rate=CONFIG["drop_path_rate"],
             cfg=MaxxVitCfg(
-                embed_dim=(144, 256, 512, 1280),
+                embed_dim=(192, 384, 512, 1280),
                 depths=(2, 16, 32, 2),
-                stem_width=72,
+                stem_width=96,
                 stem_bias=True,
                 head_hidden_size=1280,
                 **_rw_max_cfg(
@@ -73,12 +73,6 @@ class CustomMaxxVit3dClassifier(nn.Module):
                 )
             )
         )
-
-        # self.backbone.stem.conv1 = nn.Conv3d(in_channels=in_chans,
-        #                                      out_channels=96,
-        #                                      kernel_size=(1, 1, 1),
-        #                                      stride=(1, 1, 1),
-        #                                      padding=(0, 0, 0))
 
         head_in_dim = self.backbone.head.fc.in_features + 5
 
@@ -122,6 +116,9 @@ class LevelInjectorHead(NormMlpClassifierHead):
             return x
         x = self.fc(x)
         return x
+
+
+CustomMaxxVit3dClassifier("foo")
 
 
 class CustomMaxxVit3dClassifierEnsemble(nn.Module):
