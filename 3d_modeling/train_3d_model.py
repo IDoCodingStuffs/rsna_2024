@@ -206,81 +206,6 @@ class Classifier3dMultihead(nn.Module):
             self.ascension_callback.clip(head[-1])
 
 
-def train_model_3d(backbone, model_label: str):
-    transform_3d_train = tio.Compose([
-        tio.ZNormalization(),
-        tio.RandomAffine(translation=10, degrees=25, image_interpolation=CONFIG["image_interpolation"],
-                         p=CONFIG["aug_prob"]),
-        tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 3),
-        tio.RescaleIntensity((0, 1)),
-    ])
-
-    transform_3d_val = tio.Compose([
-        tio.RescaleIntensity((0, 1)),
-    ])
-
-    dataset_folds = create_study_level_datasets_and_loaders_k_fold(TRAINING_DATA,
-                                                                   transform_3d_train=transform_3d_train,
-                                                                   transform_3d_val=transform_3d_val,
-                                                                   base_path=os.path.join(
-                                                                       DATA_BASEPATH,
-                                                                       "train_images"),
-                                                                   vol_size=CONFIG["vol_size"],
-                                                                   num_workers=CONFIG["num_workers"],
-                                                                   split_k=CONFIG["split_k"],
-                                                                   batch_size=CONFIG["batch_size"],
-                                                                   pin_memory=True,
-                                                                   use_mirroring_trick=True
-                                                                   )
-
-    schedulers = [
-    ]
-    criteria = {
-        "train": [
-            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]).to(device) for i in range(CONFIG["num_classes"])
-        ],
-        "unweighted_val": [
-            CumulativeLinkLoss().to(device) for i in range(CONFIG["num_classes"])
-        ],
-        "alt_val": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_classes"])
-        ],
-        "weighted_alt_val": [
-            nn.CrossEntropyLoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_classes"])
-        ],
-        "unweighted_alt_val": [
-            nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_classes"])
-        ]
-    }
-
-    for index, fold in enumerate(dataset_folds):
-        model = CustomMaxxVit3dClassifier()
-        optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=3e-4),
-        ]
-
-        trainloader, valloader, trainset, testset = fold
-
-        train_model_with_validation(model,
-                                    optimizers,
-                                    schedulers,
-                                    criteria,
-                                    trainloader,
-                                    valloader,
-                                    model_desc=model_label + f"_fold_{index}",
-                                    train_loader_desc=f"Training {model_label} fold {index}",
-                                    epochs=CONFIG["epochs"],
-                                    freeze_backbone_initial_epochs=-1,
-                                    freeze_backbone_after_epochs=-1,
-                                    loss_weights=CONFIG["loss_weights"],
-                                    callbacks=[model._ascension_callback],
-                                    gradient_accumulation_per=CONFIG["gradient_acc_steps"]
-                                    )
-
-    return model
-
-
 def train_stage_2_model_3d(backbone, model_label: str):
     bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
     coords_dataframe = pd.read_csv(os.path.join("data/SpineNet/coords_3d.csv"))
@@ -392,6 +317,88 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     ])
 
     transform_3d_val = tio.Compose([
+        tio.ZNormalization(),
+        tio.RescaleIntensity((0, 1)),
+    ])
+
+    train_data = TRAINING_DATA[TRAINING_DATA["study_id"].isin(bounds_dataframe["study_id"])]
+    dataset_folds = create_vertebra_level_datasets_and_loaders_k_fold(train_data,
+                                                                      boundaries_df=bounds_dataframe,
+                                                                      coords_df=coords_dataframe,
+                                                                      transform_3d_train=transform_3d_train,
+                                                                      transform_3d_val=transform_3d_val,
+                                                                      base_path=os.path.join(
+                                                                          DATA_BASEPATH,
+                                                                          "train_images"),
+                                                                      vol_size=CONFIG["vol_size"],
+                                                                      num_workers=CONFIG["num_workers"],
+                                                                      split_k=CONFIG["split_k"],
+                                                                      batch_size=CONFIG["batch_size"],
+                                                                      pin_memory=True,
+                                                                      use_mirroring_trick=True
+                                                                      )
+
+    schedulers = [
+    ]
+    criteria = {
+        "train": [
+            CumulativeLinkLoss(class_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+        ],
+        "unweighted_val": [
+            CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
+        ],
+        "alt_val": [
+            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
+        ],
+        "weighted_alt_val": [
+            nn.BCELoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
+        ],
+        "unweighted_alt_val": [
+            nn.BCELoss().to(device) for i in range(CONFIG["num_conditions"])
+        ]
+    }
+
+    fold = dataset_folds[fold_index]
+    model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+    model.load_state_dict(torch.load(model_path))
+    optimizers = [
+        # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
+        torch.optim.Adam(model.parameters(), lr=5e-5),
+    ]
+
+    trainloader, valloader, trainset, testset = fold
+
+    train_model_with_validation(model,
+                                optimizers,
+                                schedulers,
+                                criteria,
+                                trainloader,
+                                valloader,
+                                model_desc=model_label + f"_fold_{fold_index}",
+                                train_loader_desc=f"Tuning {model_label} fold {fold_index}",
+                                epochs=CONFIG["tune_epochs"],
+                                freeze_backbone_initial_epochs=-1,
+                                freeze_backbone_after_epochs=-1,
+                                stage_3_epochs=2,
+                                loss_weights=CONFIG["loss_weights"],
+                                callbacks=[model._ascension_callback],
+                                gradient_accumulation_per=CONFIG["gradient_acc_steps"]
+                                )
+
+    return model
+
+
+def train_ensemble(backbone, model_label: str, model_path: str, fold_index: int):
+    bounds_dataframe = pd.read_csv(os.path.join("data/SpineNet/bounding_boxes_3d.csv"))
+    coords_dataframe = pd.read_csv(os.path.join("data/SpineNet/coords_3d.csv"))
+
+    transform_3d_train = tio.Compose([
+        tio.ZNormalization(),
+        tio.RescaleIntensity((0, 1)),
+    ])
+
+    transform_3d_val = tio.Compose([
+        tio.ZNormalization(),
         tio.RescaleIntensity((0, 1)),
     ])
 
