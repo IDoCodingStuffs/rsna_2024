@@ -37,19 +37,19 @@ def model_validation_loss(model, val_loader, loss_fns, epoch):
             with autocast("cuda", dtype=torch.bfloat16):
                 output = model(images.to(device), level.to(device))
 
-            for index, loss_fn in enumerate(loss_fns["train"]):
-                if len(loss_fns["train"]) > 1:
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
-                else:
-                    loss = loss_fn(output, label) / len(loss_fns["train"])
-                val_loss += loss.cpu().item()
+                for index, loss_fn in enumerate(loss_fns["train"]):
+                    if len(loss_fns["train"]) > 1:
+                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
+                    else:
+                        loss = loss_fn(output, label) / len(loss_fns["train"])
+                    val_loss += loss.cpu().item()
 
-            for index, loss_fn in enumerate(loss_fns["weighted_val"]):
-                if len(loss_fns["weighted_val"]) > 1:
-                    loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
-                else:
-                    loss = loss_fn(output, label) / len(loss_fns["weighted_val"])
-                weighted_val_loss += loss.cpu().item()
+                for index, loss_fn in enumerate(loss_fns["weighted_val"]):
+                    if len(loss_fns["weighted_val"]) > 1:
+                        loss = loss_fn(output[:, index], label[:, index]) / len(loss_fns["train"])
+                    else:
+                        loss = loss_fn(output, label) / len(loss_fns["weighted_val"])
+                    weighted_val_loss += loss.cpu().item()
 
         val_loss = val_loss / len(val_loader)
         weighted_val_loss = weighted_val_loss / len(val_loader)
