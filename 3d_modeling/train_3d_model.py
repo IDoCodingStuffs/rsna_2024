@@ -33,8 +33,8 @@ CONFIG = dict(
     aug_prob=0.5,
     out_dim=3,
     epochs=40,
-    tune_epochs=3,
-    batch_size=8,
+    tune_epochs=5,
+    batch_size=6,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -377,11 +377,13 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     init_model.load_state_dict(torch.load(model_path))
 
     model.backbone = init_model.backbone
+    for param in model.backbone.parameters():
+        param.requires_grad = False
 
     optimizers = [
         # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
-        torch.optim.Adam(model.backbone.parameters(), lr=1e-5),
-        torch.optim.Adam(model.heads.parameters(), lr=5e-3),
+        # torch.optim.Adam(model.backbone.parameters(), lr=1e-5),
+        torch.optim.Adam(model.parameters(), lr=3e-4),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -492,7 +494,7 @@ def train():
 def tune():
     model = tune_stage_2_model_3d(CONFIG['backbone'],
                                   f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_21_v2",
-                                  "models/maxvit_rmlp_bc_rw_96_21_v2_fold_0/maxvit_rmlp_bc_rw_96_21_v2_fold_0_1.pt",
+                                  "models/maxvit_rmlp_bc_rw_96_21_v2_fold_0/maxvit_rmlp_bc_rw_96_21_v2_fold_0_3.pt",
                                   fold_index=0)
 
 
