@@ -91,6 +91,54 @@ class CustomMaxxVit3dClassifier(nn.Module):
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
 
 
+class CustomMaxxVit3dClassifierCumulative(nn.Module):
+    def __init__(self,
+                 backbone,
+                 in_chans=3,
+                 out_classes=5,
+                 cutpoint_margin=0):
+        super(CustomMaxxVit3dClassifierCumulative, self).__init__()
+        self.out_classes = out_classes
+
+        self.backbone = timm_3d.models.MaxxVit(
+            img_size=CONFIG["vol_size"],
+            in_chans=in_chans,
+            num_classes=out_classes,
+            drop_rate=CONFIG["drop_rate"],
+            drop_path_rate=CONFIG["drop_path_rate"],
+            cfg=MaxxVitCfg(
+                embed_dim=(192, 384, 768, 1536),
+                depths=(2, 16, 32, 2),
+                stem_width=96,
+                stem_bias=True,
+                head_hidden_size=1536,
+                **_rw_max_cfg(
+                    rel_pos_type='mlp',
+                )
+            )
+        )
+
+        head_in_dim = self.backbone.head.fc.in_features + 5
+
+        self.backbone.head = LevelInjectorHead(self.backbone.head.fc.in_features, head_in_dim)
+        self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
+
+        self.heads = nn.ModuleList(
+            [nn.Sequential(
+                nn.Linear(head_in_dim, 1),
+                LogisticCumulativeLink(3)
+            ) for i in range(out_classes)]
+        )
+
+
+    def forward(self, x, level):
+        feat = self.backbone.stem(x)
+        feat = self.backbone.stages(feat)
+        feat = self.backbone.head(feat, level, pre_logits=True)
+        # feat = torch.concat([feat, level], dim=1)
+        return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
+
+
 class LevelInjectorHead(NormMlpClassifierHead):
     def __init__(self, in_feats, out_feats):
         super(LevelInjectorHead, self).__init__(in_feats, out_feats)
@@ -313,28 +361,27 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
+            # nn.CrossEntropyLoss(weight=CONDITION_RELATIVE_WEIGHTS_MIRROR[i].to(device)) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor([1, 2, 4]).to(torch.float)).to(device) for i in range(CONFIG["num_conditions"])
+
         ],
-        "unweighted_val": [
-            CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
+        "weighted_val": [
+            nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
         ],
-        "alt_val": [
-            CumulativeLinkLoss(class_weights=COMP_WEIGHTS[i]) for i in range(CONFIG["num_conditions"])
-        ],
-        "weighted_alt_val": [
-            nn.BCELoss(weight=COMP_WEIGHTS[i]).to(device) for i in range(CONFIG["num_conditions"])
-        ],
-        "unweighted_alt_val": [
-            nn.BCELoss().to(device) for i in range(CONFIG["num_conditions"])
-        ]
     }
 
     fold = dataset_folds[fold_index]
     model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
-    model.load_state_dict(torch.load(model_path))
+
+    init_model = CustomMaxxVit3dClassifierCumulative(backbone=backbone).to(device)
+    init_model.load_state_dict(torch.load(model_path))
+
+    model.backbone = init_model
+
     optimizers = [
         # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
-        torch.optim.Adam(model.parameters(), lr=1e-4),
+        torch.optim.Adam(model.backbone.parameters(), lr=1e-5),
+        torch.optim.Adam(model.heads.parameters(), lr=5e-3),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -346,12 +393,11 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 trainloader,
                                 valloader,
                                 model_desc=model_label + f"_fold_{fold_index}",
-                                train_loader_desc=f"Tuning {model_label} fold {fold_index}",
+                                train_loader_desc=f"Re-heading {model_label} fold {fold_index}",
                                 epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
                                 freeze_backbone_after_epochs=0,
                                 loss_weights=CONFIG["loss_weights"],
-                                callbacks=[model._ascension_callback],
                                 gradient_accumulation_per=CONFIG["gradient_acc_steps"]
                                 )
 
