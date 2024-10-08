@@ -3,8 +3,8 @@ import torch.optim.lr_scheduler
 from spacecutter.losses import CumulativeLinkLoss
 from spacecutter.models import LogisticCumulativeLink
 from spacecutter.callbacks import AscensionCallback
-from timm_3d.models import MaxxVitCfg
-from timm_3d.models.efficientformer import _create_efficientformer
+from timm_3d.models import MaxxVitCfg, build_model_with_cfg
+from timm_3d.models.efficientformer import _create_efficientformer, EfficientFormer
 from timm_3d.models.maxxvit import _rw_coat_cfg, _rw_max_cfg
 
 from training_utils import *
@@ -19,8 +19,8 @@ CONFIG = dict(
     num_conditions=5,
     image_interpolation="linear",
     # backbone="coatnet_rmlp_5_rw",
-    backbone="maxvit_rmlp_bc_rw",
-    # backbone="efficientformer_l7",
+    # backbone="maxvit_rmlp_bc_rw",
+    backbone="efficientformer_bc",
     vol_size=(96, 96, 96),
     # vol_size=(256, 256, 256),
     # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
@@ -46,7 +46,6 @@ CONFIG = dict(
 DATA_BASEPATH = "./data/rsna-2024-lumbar-spine-degenerative-classification/"
 TRAINING_DATA = retrieve_coordinate_training_data(DATA_BASEPATH)
 
-
 class CustomEfficientformer3dClassifier(nn.Module):
     def __init__(self,
                  backbone,
@@ -59,17 +58,28 @@ class CustomEfficientformer3dClassifier(nn.Module):
         # self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
 
         model_args = dict(
+            img_size=(3, 96, 96, 96),
             depths=(4, 4, 12, 6),
             embed_dims=(96, 192, 384, 768),
             num_vit=4,
         )
 
-        self.backbone = _create_efficientformer(
-
+        self.backbone = build_model_with_cfg(
+            model_cls=EfficientFormer,
+            variant=backbone,
+            pretrained=False,
+            pretrained_cfg=dict(
+                input_size=(3, 96, 96, 96),
+                interpolation="linear",
+                crop_pct=1,
+                crop_mode="center"
+            ),
+            **model_args,
         )
-        self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
-        head_in_dim = self.backbone.head.fc.in_features
-        self.backbone.head.fc = nn.Identity()
+        self.backbone.head_drop = nn.Dropout(p=CONFIG["drop_rate_last"])
+        head_in_dim = self.backbone.head.in_features
+        self.backbone.head = nn.Identity()
+        self.backbone.head_dist = nn.Identity()
 
         self.heads = nn.ModuleList(
             [nn.Sequential(
@@ -334,8 +344,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
     }
 
     for index, fold in enumerate(dataset_folds):
-        model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
-        # model = Classifier3dMultihead(backbone=backbone, in_chans=3)
+        # model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
+        model = CustomEfficientformer3dClassifier(backbone=backbone)
         optimizers = [
             torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2),
         ]
