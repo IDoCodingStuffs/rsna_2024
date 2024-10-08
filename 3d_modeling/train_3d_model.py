@@ -30,7 +30,7 @@ CONFIG = dict(
     drop_rate=0.,
     drop_rate_last=0.,
     drop_path_rate=0.,
-    aug_prob=0.5,
+    aug_prob=0.4,
     out_dim=3,
     stage_1_epochs=20,
     stage_2_epochs=20,
@@ -273,7 +273,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
         if index < 2:
             continue
         optimizers = [
-            torch.optim.Adam(model.parameters(), lr=1e-3),
+            torch.optim.Adam(model.parameters(), lr=3e-4),
         ]
 
         trainloader, valloader, trainset, testset = fold
