@@ -34,7 +34,7 @@ CONFIG = dict(
     stage_2_epochs=50,
     stage_3_epochs=50,
     epochs=50,
-    tune_epochs=5,
+    tune_epochs=10,
     batch_size=12,
     split_rate=0.25,
     split_k=5,
@@ -402,7 +402,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     model.load_state_dict(torch.load(model_path))
     optimizers = [
         # torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, nesterov=True),
-        torch.optim.Adam(model.parameters(), lr=1e-3),
+        torch.optim.Adam(model.parameters(), lr=5e-5),
     ]
 
     trainloader, valloader, trainset, testset = fold
@@ -417,7 +417,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 train_loader_desc=f"Tuning {model_label} fold {fold_index}",
                                 epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
-                                freeze_backbone_after_epochs=0,
+                                freeze_backbone_after_epochs=-1,
                                 loss_weights=CONFIG["loss_weights"],
                                 callbacks=[model._ascension_callback],
                                 gradient_accumulation_per=CONFIG["gradient_acc_steps"]
