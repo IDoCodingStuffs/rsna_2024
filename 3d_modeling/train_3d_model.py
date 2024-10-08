@@ -34,7 +34,7 @@ CONFIG = dict(
     out_dim=3,
     epochs=40,
     tune_epochs=4,
-    batch_size=12,
+    batch_size=8,
     split_rate=0.25,
     split_k=5,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
@@ -236,10 +236,12 @@ def train_stage_2_model_3d(backbone, model_label: str):
     ]
     criteria = {
         "train": [
-            nn.CrossEntropyLoss(weight=torch.tensor([1, 2, 4])) for i in range(CONFIG["num_conditions"])
+            # nn.CrossEntropyLoss(weight=CONDITION_RELATIVE_WEIGHTS_MIRROR[i].to(device)) for i in range(CONFIG["num_conditions"])
+            nn.CrossEntropyLoss(weight=torch.tensor([1, 2, 4]).to(torch.float)).to(device) for i in range(CONFIG["num_conditions"])
+
         ],
-        "unweighted_val": [
-            nn.CrossEntropyLoss() for i in range(CONFIG["num_conditions"])
+        "weighted_val": [
+            nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
         ],
     }
 
@@ -444,8 +446,8 @@ def train():
 def tune():
     model = tune_stage_2_model_3d(CONFIG['backbone'],
                                   f"{CONFIG['backbone']}_{CONFIG['vol_size'][0]}_9_v2",
-                                  "models/maxvit_rmlp_bc_rw_96_v2_fold_1/maxvit_rmlp_bc_rw_96_v2_fold_1_9.pt",
-                                  fold_index=1)
+                                  "models/maxvit_rmlp_bc_rw_96_v2_fold_1/maxvit_rmlp_bc_rw_96_v2_fold_2_12.pt",
+                                  fold_index=2)
 
 
 if __name__ == '__main__':
