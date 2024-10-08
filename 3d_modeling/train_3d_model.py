@@ -381,7 +381,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     ]
     criteria = {
         "train": [
-            CumulativeLinkLoss(class_weights=CONFIG["loss_weights"][i]) for i in range(CONFIG["num_conditions"])
+            CumulativeLinkLoss(class_weights=CONDITION_LOGN_RELATIVE_WEIGHTS_MIRROR[i]) for i in range(CONFIG["num_conditions"])
         ],
         "unweighted_val": [
             CumulativeLinkLoss() for i in range(CONFIG["num_conditions"])
@@ -418,6 +418,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
                                 freeze_backbone_after_epochs=-1,
+                                stage_3_epochs=5,
                                 loss_weights=CONFIG["loss_weights"],
                                 callbacks=[model._ascension_callback],
                                 gradient_accumulation_per=CONFIG["gradient_acc_steps"]
