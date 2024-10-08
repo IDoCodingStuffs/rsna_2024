@@ -1,6 +1,7 @@
 import os.path
 from typing import Iterable
 
+import numpy as np
 import timm_3d
 import torch.optim.lr_scheduler
 from spacecutter.losses import CumulativeLinkLoss
@@ -35,7 +36,7 @@ CONFIG = dict(
     stage_2_epochs=24,
     stage_3_epochs=28,
     epochs=32,
-    tune_epochs=10,
+    tune_epochs=4,
     batch_size=12,
     split_rate=0.25,
     split_k=5,
@@ -154,10 +155,6 @@ class CustomMaxxVit3dClassifierEnsemble(nn.Module):
 
         feat = torch.cat(feats, dim=1)
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
-
-
-
-CustomMaxxVit3dClassifierEnsemble(models=[CustomMaxxVit3dClassifier("foo") for i in range(5)])
 
 
 class Classifier3dMultihead(nn.Module):
@@ -456,7 +453,7 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
                                 epochs=CONFIG["tune_epochs"],
                                 freeze_backbone_initial_epochs=-1,
                                 freeze_backbone_after_epochs=-1,
-                                stage_3_epochs=5,
+                                stage_3_epochs=2,
                                 loss_weights=CONFIG["loss_weights"],
                                 callbacks=[model._ascension_callback],
                                 gradient_accumulation_per=CONFIG["gradient_acc_steps"]
