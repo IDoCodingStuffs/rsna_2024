@@ -30,7 +30,7 @@ CONFIG = dict(
     drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.,
-    aug_prob=0.85,
+    aug_prob=0.75,
     out_dim=3,
     stage_1_epochs=30,
     stage_2_epochs=34,
@@ -218,7 +218,8 @@ def train_stage_2_model_3d(backbone, model_label: str):
                          image_interpolation=CONFIG["image_interpolation"],
                          p=CONFIG["aug_prob"]),
         tio.RandomNoise(p=CONFIG["aug_prob"]),
-        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"] / 2),
+        tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
+        tio.RandomBlur(p=CONFIG["aug_prob"]),
     ])
 
     transform_3d_val = tio.Compose([
