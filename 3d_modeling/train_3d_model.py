@@ -27,12 +27,12 @@ CONFIG = dict(
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=18,
     gradient_acc_steps=1,
-    drop_rate=0.,
+    drop_rate=0.1,
     drop_rate_last=0.,
-    drop_path_rate=0.,
-    aug_prob=0.4,
+    drop_path_rate=0.1,
+    aug_prob=0.5,
     out_dim=3,
-    epochs=20,
+    epochs=40,
     tune_epochs=4,
     batch_size=12,
     split_rate=0.25,
@@ -246,7 +246,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
     for index, fold in enumerate(dataset_folds):
         model = CustomMaxxVit3dClassifier(backbone=backbone).to(device)
         # model = CustomEfficientformer3dClassifier(backbone=backbone).to(device)
-        if index < 2:
+        if index < 3:
             continue
         optimizers = [
             torch.optim.Adam(model.parameters(), lr=3e-4),
