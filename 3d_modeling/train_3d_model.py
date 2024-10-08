@@ -3,6 +3,7 @@ import torch.optim.lr_scheduler
 from spacecutter.losses import CumulativeLinkLoss
 from spacecutter.models import LogisticCumulativeLink
 from spacecutter.callbacks import AscensionCallback
+from timm_3d.layers import NormMlpClassifierHead
 from timm_3d.models import MaxxVitCfg, build_model_with_cfg
 from timm_3d.models.efficientformer import _create_efficientformer, EfficientFormer
 from timm_3d.models.maxxvit import _rw_coat_cfg, _rw_max_cfg
@@ -18,14 +19,10 @@ CONFIG = dict(
     num_classes=25,
     num_conditions=5,
     image_interpolation="linear",
-    # backbone="coatnet_rmlp_5_rw",
     backbone="maxvit_rmlp_bc_rw",
-    # backbone="efficientformer_bc",
     vol_size=(96, 96, 96),
-    # vol_size=(256, 256, 256),
-    # loss_weights=CLASS_RELATIVE_WEIGHTS_MIRROR_CLIPPED,
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
-    num_workers=18,
+    num_workers=20,
     gradient_acc_steps=1,
     drop_rate=0.35,
     drop_rate_last=0.,
@@ -110,8 +107,6 @@ class CustomMaxxVit3dClassifier(nn.Module):
         super(CustomMaxxVit3dClassifier, self).__init__()
         self.out_classes = out_classes
 
-        # self.config = timm_3d.models.maxxvit.model_cfgs[backbone]
-
         self.backbone = timm_3d.models.MaxxVit(
             img_size=CONFIG["vol_size"],
             in_chans=in_chans,
@@ -124,21 +119,22 @@ class CustomMaxxVit3dClassifier(nn.Module):
                 stem_width=96,
                 stem_bias=True,
                 head_hidden_size=1536,
-                # **_rw_coat_cfg(
-                #     stride_mode='dw',
-                #     conv_attn_act_layer='silu',
-                #     init_values=1e-6,
-                #     rel_pos_type='mlp',
-                #     rel_pos_dim=512,
-                # ),
                 **_rw_max_cfg(
                     rel_pos_type='mlp',
                 )
             )
         )
-        self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
+
+        # self.backbone.stem.conv1 = nn.Conv3d(in_channels=in_chans,
+        #                                      out_channels=96,
+        #                                      kernel_size=(1, 1, 1),
+        #                                      stride=(1, 1, 1),
+        #                                      padding=(0, 0, 0))
+
         head_in_dim = self.backbone.head.fc.in_features + 5
-        self.backbone.head.fc = nn.Identity()
+
+        self.backbone.head = LevelInjectorHead(self.backbone.head.fc.in_features, head_in_dim)
+        self.backbone.head.drop = nn.Dropout(p=CONFIG["drop_rate_last"])
 
         self.heads = nn.ModuleList(
             [nn.Sequential(
@@ -150,13 +146,33 @@ class CustomMaxxVit3dClassifier(nn.Module):
         self.ascension_callback = AscensionCallback(margin=cutpoint_margin)
 
     def forward(self, x, level):
-        feat = self.backbone(x)
-        feat = torch.concat([feat, level], dim=1)
+        feat = self.backbone.stem(x)
+        feat = self.backbone.stages(feat)
+        feat = self.backbone.head(feat, level, pre_logits=True)
+        # feat = torch.concat([feat, level], dim=1)
         return torch.swapaxes(torch.stack([head(feat) for head in self.heads]), 0, 1)
 
     def _ascension_callback(self):
         for head in self.heads:
             self.ascension_callback.clip(head[-1])
+
+
+class LevelInjectorHead(NormMlpClassifierHead):
+    def __init__(self, in_feats, out_feats):
+        super(LevelInjectorHead, self).__init__(in_feats, out_feats)
+
+    def forward(self, x, level=None, pre_logits=False):
+        x = self.global_pool(x)
+        x = self.norm(x)
+        x = self.flatten(x)
+        if level is not None:
+            x = torch.concat([x, level], dim=1)
+        x = self.pre_logits(x)
+        x = self.drop(x)
+        if pre_logits:
+            return x
+        x = self.fc(x)
+        return x
 
 
 class Classifier3dMultihead(nn.Module):
