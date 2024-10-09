@@ -27,10 +27,10 @@ CONFIG = dict(
     loss_weights=CONDITION_RELATIVE_WEIGHTS_MIRROR,
     num_workers=18,
     gradient_acc_steps=1,
-    drop_rate=0.1,
+    drop_rate=0.35,
     drop_rate_last=0.,
     drop_path_rate=0.1,
-    aug_prob=0.5,
+    aug_prob=0.6,
     out_dim=3,
     epochs=40,
     tune_epochs=5,
@@ -256,6 +256,7 @@ def train_stage_2_model_3d(backbone, model_label: str):
         tio.RandomNoise(p=CONFIG["aug_prob"]),
         tio.RandomSpike(1, intensity=(-0.5, 0.5), p=CONFIG["aug_prob"]),
         tio.RandomBlur(p=CONFIG["aug_prob"]),
+        tio.RandomGamma(p=CONFIG["aug_prob"])
     ])
 
     transform_3d_val = tio.Compose([
