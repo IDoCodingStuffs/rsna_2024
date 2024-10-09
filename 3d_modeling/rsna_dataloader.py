@@ -192,17 +192,17 @@ class StudyPerVertebraLevelDataset(Dataset):
         center_2 = np.array(curr_centers.iloc[1][["x", "y", "z"]].values)
 
         study_images = read_vertebral_level_as_voxel_grid_nonaligned(study_path,
-                                                                vertebral_level=level,
-                                                                center_point_pair=(center_1, center_2),
-                                                                min_bound=np.array(
-                                                                    [curr_bounds['x_min'], curr_bounds['y_min'],
-                                                                     curr_bounds['z_min']]),
-                                                                max_bound=np.array(
-                                                                    [curr_bounds['x_max'], curr_bounds['y_max'],
-                                                                     curr_bounds['z_max']]),
-                                                                series_type_dict=self.series_descs,
-                                                                voxel_size=self.vol_size
-                                                                )
+                                                                     vertebral_level=level,
+                                                                     center_point_pair=(center_1, center_2),
+                                                                     min_bound=np.array(
+                                                                         [curr_bounds['x_min'], curr_bounds['y_min'],
+                                                                          curr_bounds['z_min']]),
+                                                                     max_bound=np.array(
+                                                                         [curr_bounds['x_max'], curr_bounds['y_max'],
+                                                                          curr_bounds['z_max']]),
+                                                                     series_type_dict=self.series_descs,
+                                                                     voxel_size=self.vol_size
+                                                                     )
 
         if is_mirror:
             temp = label[:2].copy()
@@ -567,9 +567,6 @@ def read_study_as_pcd(dir_path,
             else:
                 pcd_sagittal += pcd.transform(transform_matrix)
 
-    bbox = pcd_sagittal.get_oriented_bounding_box()
-    pcd_axial = pcd_axial.crop(bbox)
-
     return pcd_axial + pcd_sagittal
 
 
@@ -797,16 +794,17 @@ def read_vertebral_level_as_voxel_grid_alt(dir_path,
 
 
 def read_vertebral_level_as_voxel_grid_nonaligned(dir_path,
-                                             vertebral_level: str,
-                                             center_point_pair: tuple,
-                                             max_bound: np.array,
-                                             min_bound: np.array,
-                                             pcd_overall: o3d.geometry.PointCloud = None,
-                                             series_type_dict=None,
-                                             downsampling_factor=1,
-                                             voxel_size=(128, 128, 32),
-                                             caching=True,
-                                             ):
+                                                  vertebral_level: str,
+                                                  center_point_pair: tuple,
+                                                  max_bound: np.array,
+                                                  min_bound: np.array,
+                                                  vx_size=1,
+                                                  pcd_overall: o3d.geometry.PointCloud = None,
+                                                  series_type_dict=None,
+                                                  downsampling_factor=1,
+                                                  voxel_size=(128, 128, 32),
+                                                  caching=True,
+                                                  ):
     cache_path = os.path.join(dir_path,
                               f"cached_grid_nonaligned_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
@@ -826,11 +824,11 @@ def read_vertebral_level_as_voxel_grid_nonaligned(dir_path,
 
     if pcd_overall is None:
         pcd_overall = read_study_as_pcd(dir_path,
-                          series_types_dict=series_type_dict,
-                          downsampling_factor=downsampling_factor,
-                          img_size=(voxel_size[0], voxel_size[2]),
-                          stack_slices_thickness=True,
-                          resize_slices=False)
+                                        series_types_dict=series_type_dict,
+                                        downsampling_factor=downsampling_factor,
+                                        img_size=(voxel_size[0], voxel_size[2]),
+                                        stack_slices_thickness=True,
+                                        resize_slices=False)
 
     bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
     pcd_overall = pcd_overall.crop(bbox)
@@ -851,8 +849,7 @@ def read_vertebral_level_as_voxel_grid_nonaligned(dir_path,
     pcd_level = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts_level))
     pcd_level.colors = o3d.utility.Vector3dVector(vals_level)
 
-    size = 1
-    voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
+    voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, vx_size,
                                                                    color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
     coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
@@ -876,16 +873,16 @@ def read_vertebral_level_as_voxel_grid_nonaligned(dir_path,
 
 
 def read_vertebral_level_as_voxel_grid_aligned(dir_path,
-                                             vertebral_level: str,
-                                             center_point_pair: tuple,
-                                             max_bound: np.array,
-                                             min_bound: np.array,
-                                             pcd_overall: o3d.geometry.PointCloud = None,
-                                             series_type_dict=None,
-                                             downsampling_factor=1,
-                                             voxel_size=(128, 128, 32),
-                                             caching=True,
-                                             ):
+                                               vertebral_level: str,
+                                               center_point_pair: tuple,
+                                               max_bound: np.array,
+                                               min_bound: np.array,
+                                               pcd_overall: o3d.geometry.PointCloud = None,
+                                               series_type_dict=None,
+                                               downsampling_factor=1,
+                                               voxel_size=(128, 128, 32),
+                                               caching=True,
+                                               ):
     cache_path = os.path.join(dir_path,
                               f"cached_grid_aligned_{vertebral_level}_{voxel_size[0]}_{voxel_size[1]}_{voxel_size[2]}.npy.gz")
     f = None
@@ -906,11 +903,11 @@ def read_vertebral_level_as_voxel_grid_aligned(dir_path,
     bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
     if pcd_overall is None:
         pcd_overall = read_study_as_pcd(dir_path,
-                          series_types_dict=series_type_dict,
-                          downsampling_factor=downsampling_factor,
-                          img_size=(voxel_size[0], voxel_size[2]),
-                          stack_slices_thickness=True,
-                          resize_slices=False)
+                                        series_types_dict=series_type_dict,
+                                        downsampling_factor=downsampling_factor,
+                                        img_size=(voxel_size[0], voxel_size[2]),
+                                        stack_slices_thickness=True,
+                                        resize_slices=False)
 
     pcd_overall = pcd_overall.crop(bbox)
 
@@ -1083,14 +1080,15 @@ def read_vertebral_levels_as_voxel_grids_alt(dir_path,
 
 
 def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
-                                               vertebral_levels: list[str],
-                                               max_bounds: list[np.array],
-                                               min_bounds: list[np.array],
-                                               center_point_pairs: list[tuple[np.array, np.array]],
-                                               pcd_overall: o3d.geometry.PointCloud = None,
-                                               series_type_dict=None,
-                                               downsampling_factor=1,
-                                               voxel_size=(128, 128, 42)):
+                                                    vertebral_levels: list[str],
+                                                    max_bounds: list[np.array],
+                                                    min_bounds: list[np.array],
+                                                    center_point_pairs: list[tuple[np.array, np.array]],
+                                                    vx_size=1,
+                                                    pcd_overall: o3d.geometry.PointCloud = None,
+                                                    series_type_dict=None,
+                                                    downsampling_factor=1,
+                                                    voxel_size=(128, 128, 42)):
     ret = {}
 
     resize = tio.Resize(voxel_size)
@@ -1138,9 +1136,12 @@ def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
             pcd_level = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts_level))
             pcd_level.colors = o3d.utility.Vector3dVector(vals_level)
 
-            size = 1
-            voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
-                                                                           color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
+            try:
+                voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, vx_size,
+                                                                               color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
+            except:
+                voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, 1,
+                                                                               color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
             coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
             vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
@@ -1164,14 +1165,14 @@ def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
 
 
 def read_vertebral_levels_as_voxel_grids_aligned(dir_path,
-                                               vertebral_levels: list[str],
-                                               max_bounds: list[np.array],
-                                               min_bounds: list[np.array],
-                                               center_point_pairs: list[tuple[np.array, np.array]],
-                                               pcd_overall: o3d.geometry.PointCloud = None,
-                                               series_type_dict=None,
-                                               downsampling_factor=1,
-                                               voxel_size=(128, 128, 42)):
+                                                 vertebral_levels: list[str],
+                                                 max_bounds: list[np.array],
+                                                 min_bounds: list[np.array],
+                                                 center_point_pairs: list[tuple[np.array, np.array]],
+                                                 pcd_overall: o3d.geometry.PointCloud = None,
+                                                 series_type_dict=None,
+                                                 downsampling_factor=1,
+                                                 voxel_size=(128, 128, 42)):
     ret = {}
 
     resize = tio.Resize(voxel_size)
@@ -1221,7 +1222,7 @@ def read_vertebral_levels_as_voxel_grids_aligned(dir_path,
 
             pcd_level.colors = o3d.utility.Vector3dVector(vals_level)
 
-            size = 1
+            size = 0.4
             voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, size,
                                                                            color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
