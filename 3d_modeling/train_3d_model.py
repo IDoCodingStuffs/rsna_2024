@@ -36,7 +36,7 @@ CONFIG = dict(
     tune_epochs=5,
     batch_size=6,
     split_rate=0.25,
-    split_k=5,
+    split_k=10,
     device=torch.device("cuda") if torch.cuda.is_available() else "cpu",
     seed=2024
 )
@@ -362,11 +362,10 @@ def tune_stage_2_model_3d(backbone, model_label: str, model_path: str, fold_inde
     ]
     criteria = {
         "train": [
-            # nn.CrossEntropyLoss(weight=CONDITION_RELATIVE_WEIGHTS_MIRROR[i].to(device)) for i in range(CONFIG["num_conditions"])
             nn.CrossEntropyLoss(weight=torch.tensor([1, 2, 4]).to(torch.float)).to(device) for i in range(CONFIG["num_conditions"])
 
         ],
-        "weighted_val": [
+        "unweighted_val": [
             nn.CrossEntropyLoss().to(device) for i in range(CONFIG["num_conditions"])
         ],
     }
