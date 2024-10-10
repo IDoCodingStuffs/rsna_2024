@@ -55,17 +55,6 @@ def worker_loop(dirslice):
                 )
             )
 
-        try:
-            read_vertebral_levels_as_voxel_grids_nonaligned(
-                dir,
-                vertebral_levels=levels,
-                min_bounds=min_bounds,
-                max_bounds=max_bounds,
-                center_point_pairs=point_pairs,
-                series_type_dict=series_descs,
-                voxel_size=(96, 96, 96),
-                vx_size=0.4)
-        except:
             read_vertebral_levels_as_voxel_grids_nonaligned(
                 dir,
                 vertebral_levels=levels,

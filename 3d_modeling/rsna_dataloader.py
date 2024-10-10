@@ -567,6 +567,12 @@ def read_study_as_pcd(dir_path,
             else:
                 pcd_sagittal += pcd.transform(transform_matrix)
 
+    try:
+        bbox = pcd_sagittal.get_oriented_bounding_box()
+        pcd_axial = pcd_axial.crop(bbox)
+    except:
+        pass
+
     return pcd_axial + pcd_sagittal
 
 
@@ -1143,6 +1149,8 @@ def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
                 voxel_level = o3d.geometry.VoxelGrid().create_from_point_cloud(pcd_level, 1,
                                                                                color_mode=o3d.geometry.VoxelGrid.VoxelColorMode.MAX)
 
+            del pcd_level
+
             coords = np.array([voxel.grid_index for voxel in voxel_level.get_voxels()])
             vals = np.array([voxel.color for voxel in voxel_level.get_voxels()], dtype=np.float16)
 
@@ -1160,6 +1168,8 @@ def read_vertebral_levels_as_voxel_grids_nonaligned(dir_path,
             f.close()
 
             ret[vertebral_level] = grid
+
+    del pcd_overall
 
     return ret
 
