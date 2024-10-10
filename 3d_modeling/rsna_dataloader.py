@@ -217,11 +217,11 @@ class StudyPerVertebraLevelDataset(Dataset):
 
             study_images = self.transform_3d(study_images)  # .data
             return (study_images.to(torch.half),
-                    torch.HalfTensor([0 if i == LEVELS.index(level) else 1 for i in range(len(LEVELS))]),
+                    torch.HalfTensor([1 if i == LEVELS.index(level) else 0 for i in range(len(LEVELS))]),
                     torch.tensor(label, dtype=torch.long))
 
         return (torch.HalfTensor(study_images.copy()),
-                torch.HalfTensor([0 if i == LEVELS.index(level) else 1 for i in range(len(LEVELS))]),
+                torch.HalfTensor([1 if i == LEVELS.index(level) else 0 for i in range(len(LEVELS))]),
                 torch.tensor(label, dtype=torch.long),
                 )
 
@@ -567,8 +567,11 @@ def read_study_as_pcd(dir_path,
             else:
                 pcd_sagittal += pcd.transform(transform_matrix)
 
-    bbox = pcd_sagittal.get_oriented_bounding_box()
-    pcd_axial = pcd_axial.crop(bbox)
+    try:
+        bbox = pcd_sagittal.get_oriented_bounding_box()
+        pcd_axial = pcd_axial.crop(bbox)
+    except:
+        pass
 
     return pcd_axial + pcd_sagittal
 
